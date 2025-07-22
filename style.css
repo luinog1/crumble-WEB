@@ -161,6 +161,114 @@ body {
   outline: none;
 }
 
+/* Stream modal styles */
+.stream-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.stream-modal-content {
+  background-color: #1a1a1a;
+  margin: 5% auto;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.stream-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin: 10px 0;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border: 2px solid transparent;
+}
+
+.stream-item:hover {
+  background-color: #3a3a3a;
+}
+
+.stream-item.stream-warning {
+  border-color: #ffaa00;
+  background-color: #2a2520;
+}
+
+.stream-item.stream-warning:hover {
+  background-color: #3a3020;
+}
+
+.stream-info {
+  flex: 1;
+}
+
+.stream-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #fff;
+}
+
+.stream-details {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.9em;
+  color: #ccc;
+}
+
+.stream-details span {
+  background-color: #444;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.stream-type {
+  background-color: #2196F3 !important;
+  color: white;
+  font-weight: bold;
+}
+
+.stream-warning .stream-type {
+  background-color: #ffaa00 !important;
+  color: #000;
+}
+
+.stream-quality {
+  background-color: #4CAF50 !important;
+  color: white;
+}
+
+.stream-action {
+  margin-left: 15px;
+}
+
+.btn-play {
+  background-color: #ff6b35;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.btn-play:hover {
+  background-color: #e55a2b;
+}
+
 /* Modal Styles */
 .modal {
   display: none;
@@ -449,8 +557,8 @@ body {
   }
   .carousel-card,
   .card {
-    min-width: 90px;
-    max-width: 90px;
+    min-width: 85px;
+    max-width: 85px;
   }
   .carousel-card img,
   .card img {

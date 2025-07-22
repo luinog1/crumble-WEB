@@ -80,6 +80,21 @@
         </form>
         <div id="api-key-status"></div>
 
+        <!-- Debrid Service -->
+        <form id="debrid-form" onsubmit="event.preventDefault(); saveDebridConfig();">
+          <label for="debrid-service">Debrid Service:</label>
+          <select id="debrid-service">
+            <option value="none">None (Magnet links only)</option>
+            <option value="realdebrid">Real-Debrid</option>
+            <option value="alldebrid">AllDebrid</option>
+            <option value="premiumize">Premiumize</option>
+          </select>
+          <label for="debrid-api-key">Debrid API Key:</label>
+          <input type="text" id="debrid-api-key" placeholder="Enter your debrid API key" autocomplete="off" />
+          <button type="submit">Save Debrid</button>
+        </form>
+        <div id="debrid-status"></div>
+
         <!-- Preferred Player -->
         <form id="player-form" onsubmit="event.preventDefault(); savePlayerChoice();">
           <label for="player-select">Preferred Player:</label>

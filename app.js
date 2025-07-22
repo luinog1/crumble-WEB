@@ -90,15 +90,17 @@ window.showTab = function(tabId) {
     console.log('Tab switched to:', tabId);
 
     if(tabId === 'settings-tab') {
-      const apiKeyInput = document.getElementById('api-key-input');
-      const playerSelect = document.getElementById('player-select');
-      const apiKeyStatus = document.getElementById('api-key-status');
-      const playerStatus = document.getElementById('player-status');
-
-      if (apiKeyInput) apiKeyInput.value = localStorage.getItem('tmdb_api_key') || '';
-      if (playerSelect) playerSelect.value = getPlayerChoice();
-      if (apiKeyStatus) apiKeyStatus.textContent = '';
-      if (playerStatus) playerStatus.textContent = '';
+      document.getElementById('api-key-input').value = localStorage.getItem('tmdb_api_key') || '';
+      document.getElementById('player-select').value = getPlayerChoice();
+      document.getElementById('api-key-status').textContent = '';
+      document.getElementById('player-status').textContent = '';
+      
+      // Load debrid configuration
+      const debridConfig = getDebridConfig();
+      document.getElementById('debrid-service').value = debridConfig.service;
+      document.getElementById('debrid-api-key').value = debridConfig.apiKey;
+      document.getElementById('debrid-status').textContent = '';
+      
       renderAddonList();
     }
 
@@ -119,26 +121,39 @@ window.saveApiKey = function() {
   const statusDiv = document.getElementById('api-key-status');
 
   if (!input || !statusDiv) {
-    console.error('API key elements not found');
-    return;
-  }
-
-  const value = input.value.trim();
-  if (!value) {
-    statusDiv.textContent = 'API Key cannot be empty.';
-    statusDiv.style.color = '#ff8888';
-    return;
-  }
-
-  localStorage.setItem('tmdb_api_key', value);
-  statusDiv.textContent = 'API Key saved!';
-  statusDiv.style.color = '#88ff88';
-
-  // Try to load popular movies if TMDB functions are available
-  if (typeof loadHomeCatalogs === 'function') {
-    loadHomeCatalogs();
   }
 };
+
+// Save debrid service configuration
+function saveDebridConfig() {
+  const service = document.getElementById('debrid-service').value;
+  const apiKey = document.getElementById('debrid-api-key').value.trim();
+  
+  const config = {
+    service: service,
+    apiKey: apiKey
+  };
+  
+  localStorage.setItem('debrid_config', JSON.stringify(config));
+  
+  const statusDiv = document.getElementById('debrid-status');
+  if (service === 'none') {
+    statusDiv.textContent = 'Debrid service disabled. External players will receive magnet links.';
+    statusDiv.style.color = '#ffaa00';
+  } else if (apiKey) {
+    statusDiv.textContent = `${service} configuration saved! External players will get HTTP streams.`;
+    statusDiv.style.color = '#88ff88';
+  } else {
+    statusDiv.textContent = 'Please enter your debrid API key.';
+    statusDiv.style.color = '#ff8888';
+  }
+}
+
+// Get debrid configuration
+function getDebridConfig() {
+  const config = localStorage.getItem('debrid_config');
+  return config ? JSON.parse(config) : { service: 'none', apiKey: '' };
+}
 
 // --- Player Preference Logic ---
 function getPlayerChoice() {
@@ -230,10 +245,12 @@ async function fetchStreamingLinks(imdbId, type = 'movie', season = null, episod
       }
 
       const data = await response.json();
-
+      console.log(`Raw stream data from ${addon.name}:`, data);
+      
       // Parse streams from response
       if (data.streams && Array.isArray(data.streams)) {
         data.streams.forEach(stream => {
+          console.log('Processing stream:', stream);
           allStreams.push({
             ...stream,
             addonName: addon.name,
@@ -242,6 +259,8 @@ async function fetchStreamingLinks(imdbId, type = 'movie', season = null, episod
             seeds: extractSeeds(stream.title || stream.name || '')
           });
         });
+      } else {
+        console.warn(`No streams found in response from ${addon.name}:`, data);
       }
     } catch (error) {
       console.error(`Error fetching from addon ${addon.name}:`, error);
@@ -337,12 +356,22 @@ function renderStreamList(streams) {
   if (streams.length === 0) {
     return '<div class="no-streams">No streams found. Try adding more addons in Settings.</div>';
   }
-
-  return streams.map((stream, index) => `
-    <div class="stream-item" onclick="selectStream(${index})">
+  
+  const debridConfig = getDebridConfig();
+  const hasDebrid = debridConfig.service !== 'none' && debridConfig.apiKey;
+  
+  return streams.map((stream, index) => {
+    const streamType = getStreamType(stream);
+    const isCompatible = streamType === 'http' || hasDebrid;
+    const compatibilityIcon = isCompatible ? '✅' : '⚠️';
+    const compatibilityText = streamType === 'http' ? 'HTTP Stream' : hasDebrid ? 'Torrent (Debrid)' : 'Torrent (Magnet)';
+    
+    return `
+    <div class="stream-item ${!isCompatible ? 'stream-warning' : ''}" onclick="selectStream(${index})">
       <div class="stream-info">
         <div class="stream-title">${stream.title || stream.name || 'Unknown Stream'}</div>
         <div class="stream-details">
+          <span class="stream-type">${compatibilityIcon} ${compatibilityText}</span>
           <span class="stream-quality">${stream.quality}</span>
           ${stream.size ? `<span class="stream-size">${stream.size}</span>` : ''}
           ${stream.seeds > 0 ? `<span class="stream-seeds">👥 ${stream.seeds}</span>` : ''}
@@ -353,7 +382,16 @@ function renderStreamList(streams) {
         <button class="btn-play">▶️ Play</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+// Determine stream type
+function getStreamType(stream) {
+  if (stream.url && (stream.url.startsWith('http://') || stream.url.startsWith('https://'))) {
+    return 'http';
+  }
+  return 'torrent';
 }
 
 // Filter streams based on quality and addon
@@ -378,7 +416,7 @@ function filterStreams() {
 }
 
 // Handle stream selection
-function selectStream(streamIndex) {
+async function selectStream(streamIndex) {
   const streams = window.currentStreams || [];
   const selectedStream = streams[streamIndex];
   
@@ -394,37 +432,186 @@ function selectStream(streamIndex) {
   
   // Try to extract stream URL from different possible formats
   let streamUrl = null;
+  const streamType = getStreamType(selectedStream);
+  const debridConfig = getDebridConfig();
+  const hasDebrid = debridConfig.service !== 'none' && debridConfig.apiKey;
   
-  if (selectedStream.url) {
-    // Direct URL (HTTP/HTTPS stream)
+  if (streamType === 'http') {
+    // Direct HTTP/HTTPS stream - works with all players
     streamUrl = selectedStream.url;
-  } else if (selectedStream.infoHash) {
-    // Torrent info hash - create magnet link
-    streamUrl = `magnet:?xt=urn:btih:${selectedStream.infoHash}`;
-    if (selectedStream.title) {
-      streamUrl += `&dn=${encodeURIComponent(selectedStream.title)}`;
+    console.log('Using direct HTTP stream:', streamUrl);
+  } else if (hasDebrid) {
+    // Torrent stream with debrid service - convert to HTTP
+    console.log('Converting torrent to HTTP stream via debrid...');
+    try {
+      streamUrl = await convertTorrentToHttp(selectedStream, debridConfig);
+    } catch (error) {
+      console.error('Debrid conversion failed:', error);
+      alert(`Debrid conversion failed: ${error.message}. Falling back to magnet link.`);
+      streamUrl = extractMagnetUrl(selectedStream);
     }
-  } else if (selectedStream.magnetUrl) {
-    // Direct magnet URL
-    streamUrl = selectedStream.magnetUrl;
-  } else if (selectedStream.torrentUrl) {
-    // Torrent file URL
-    streamUrl = selectedStream.torrentUrl;
   } else {
-    // Try to extract from title if it contains a magnet link
-    const magnetMatch = selectedStream.title && selectedStream.title.match(/magnet:\?[^\s]+/);
-    if (magnetMatch) {
-      streamUrl = magnetMatch[0];
+    // Torrent stream without debrid - use magnet link
+    streamUrl = extractMagnetUrl(selectedStream);
+    const playerChoice = getPlayerChoice();
+    if (playerChoice !== 'internal') {
+      const useAnyway = confirm(
+        'This is a torrent stream (magnet link) which may not work with external players like Infuse.\n\n' +
+        'For best compatibility with external players, consider:\n' +
+        '• Setting up a debrid service (Real-Debrid, AllDebrid) in Settings\n' +
+        '• Using the Internal Player instead\n\n' +
+        'Continue with external player anyway?'
+      );
+      if (!useAnyway) {
+        return;
+      }
     }
   }
   
   if (streamUrl) {
     console.log('Launching stream URL:', streamUrl);
-    launchPlayer(streamUrl);
+    console.log('Stream type:', streamType, 'Has debrid:', hasDebrid);
+    
+    // Validate URL format before launching
+    if (streamUrl.startsWith('http') || streamUrl.startsWith('magnet:')) {
+      launchPlayer(streamUrl);
+    } else {
+      console.error('Invalid stream URL format:', streamUrl);
+      alert('Invalid stream URL format. Please check the addon configuration.');
+    }
   } else {
     console.error('No valid stream URL found in:', selectedStream);
-    alert('Stream URL not available. This might be a torrent that requires additional processing.');
+    console.log('Available stream properties:', Object.keys(selectedStream));
+    alert('Stream URL not available. Debug info logged to console.');
   }
+}
+
+// Extract magnet URL from stream data
+function extractMagnetUrl(stream) {
+  if (stream.infoHash) {
+    // Torrent info hash - create magnet link
+    let magnetUrl = `magnet:?xt=urn:btih:${stream.infoHash}`;
+    if (stream.title) {
+      magnetUrl += `&dn=${encodeURIComponent(stream.title)}`;
+    }
+    return magnetUrl;
+  } else if (stream.magnetUrl) {
+    // Direct magnet URL
+    return stream.magnetUrl;
+  } else if (stream.torrentUrl) {
+    // Torrent file URL
+    return stream.torrentUrl;
+  } else {
+    // Try to extract from title if it contains a magnet link
+    const magnetMatch = stream.title && stream.title.match(/magnet:\?[^\s]+/);
+    if (magnetMatch) {
+      return magnetMatch[0];
+    }
+  }
+  return null;
+}
+
+// Convert torrent to HTTP stream using debrid service
+async function convertTorrentToHttp(stream, debridConfig) {
+  const magnetUrl = extractMagnetUrl(stream);
+  if (!magnetUrl) {
+    throw new Error('No magnet link found in stream data');
+  }
+  
+  console.log('Converting magnet to HTTP via', debridConfig.service, ':', magnetUrl);
+  
+  switch (debridConfig.service) {
+    case 'realdebrid':
+      return await convertViaRealDebrid(magnetUrl, debridConfig.apiKey);
+    case 'alldebrid':
+      return await convertViaAllDebrid(magnetUrl, debridConfig.apiKey);
+    case 'premiumize':
+      return await convertViaPremiumize(magnetUrl, debridConfig.apiKey);
+    default:
+      throw new Error(`Unsupported debrid service: ${debridConfig.service}`);
+  }
+}
+
+// Real-Debrid API integration
+async function convertViaRealDebrid(magnetUrl, apiKey) {
+  try {
+    // Step 1: Add magnet to Real-Debrid
+    const addResponse = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: `magnet=${encodeURIComponent(magnetUrl)}`
+    });
+    
+    if (!addResponse.ok) {
+      throw new Error(`Real-Debrid add failed: ${addResponse.status}`);
+    }
+    
+    const addData = await addResponse.json();
+    const torrentId = addData.id;
+    
+    // Step 2: Select all files for download
+    await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${torrentId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'files=all'
+    });
+    
+    // Step 3: Get torrent info and download links
+    const infoResponse = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+    
+    const infoData = await infoResponse.json();
+    
+    // Find the largest video file
+    const videoFiles = infoData.files.filter(file => 
+      file.path.match(/\.(mp4|mkv|avi|mov|wmv|flv|webm)$/i)
+    );
+    
+    if (videoFiles.length === 0) {
+      throw new Error('No video files found in torrent');
+    }
+    
+    // Get the largest video file
+    const largestFile = videoFiles.reduce((prev, current) => 
+      (current.bytes > prev.bytes) ? current : prev
+    );
+    
+    // Step 4: Unrestrict the download link
+    const unrestrictResponse = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: `link=${encodeURIComponent(largestFile.link)}`
+    });
+    
+    const unrestrictData = await unrestrictResponse.json();
+    return unrestrictData.download;
+    
+  } catch (error) {
+    console.error('Real-Debrid conversion error:', error);
+    throw new Error(`Real-Debrid conversion failed: ${error.message}`);
+  }
+}
+
+// AllDebrid API integration (simplified)
+async function convertViaAllDebrid(magnetUrl, apiKey) {
+  throw new Error('AllDebrid integration not yet implemented. Please use Real-Debrid for now.');
+}
+
+// Premiumize API integration (simplified)
+async function convertViaPremiumize(magnetUrl, apiKey) {
+  throw new Error('Premiumize integration not yet implemented. Please use Real-Debrid for now.');
 }
 
 // Close stream modal
