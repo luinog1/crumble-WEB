@@ -1360,6 +1360,19 @@ function closeAddonMetaModal() {
   }
 }
 
+// Test function for AllDebrid integration (call from browser console)
+async function testAllDebrid(apiKey, magnetUrl) {
+  try {
+    console.log('Starting AllDebrid test with magnet:', magnetUrl);
+    const directLink = await convertViaAllDebrid(magnetUrl, apiKey);
+    console.log('✅ AllDebrid test successful! Direct link:', directLink);
+    return directLink;
+  } catch (error) {
+    console.error('❌ AllDebrid test failed:', error);
+    throw error;
+  }
+}
+
 // Make functions globally available
 window.saveApiKey = window.saveApiKey;
 window.savePlayerChoice = window.savePlayerChoice;
@@ -1371,5 +1384,6 @@ window.editAddon = editAddon;
 window.showAddonMetadata = showAddonMetadata;
 window.closeAddonMetaModal = closeAddonMetaModal;
 window.closeModal = closeModal;
+window.testAllDebrid = testAllDebrid;
 
 console.log('Standalone app.js loaded successfully');
