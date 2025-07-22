@@ -146,10 +146,22 @@ function playHLS(url) {
 // Fetch streaming links from Torrentio-style addons
 async function fetchStreamingLinks(imdbId, type = 'movie', season = null, episode = null) {
   console.log('Fetching streaming links for IMDB ID:', imdbId);
-
-  const addons = getAddons().filter(addon => addon.type === 'torrent' || addon.type === 'scraper');
+  
+  const allAddons = getAddons();
+  console.log('All addons found:', allAddons);
+  
+  // Filter for streaming addons (more flexible filtering)
+  const addons = allAddons.filter(addon => {
+    const hasStreamResource = addon.resources && addon.resources.includes('stream');
+    const isStreamingType = addon.type === 'torrent' || addon.type === 'scraper' || addon.type === 'other';
+    return hasStreamResource || isStreamingType;
+  });
+  
+  console.log('Filtered streaming addons:', addons);
+  
   if (addons.length === 0) {
-    throw new Error('No streaming addons configured. Please add Torrentio or similar addons in Settings.');
+    const addonCount = allAddons.length;
+    throw new Error(`No streaming addons found. Found ${addonCount} total addons. Please add Torrentio or similar streaming addons in Settings.`);
   }
 
   const allStreams = [];
