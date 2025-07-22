@@ -1,16 +1,136 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>replit</title>
-  <link href="style.css" rel="stylesheet" type="text/css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crumble</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
 </head>
-
 <body>
-  Hello world
-  <script src="script.js"></script>
-</body>
+  <div class="app">
 
+    <!-- Page Content Area -->
+    <div id="page-content">
+
+      <!-- Home Tab -->
+      <div id="home-tab" class="tab active">
+        <h1>🍿 Crumble</h1>
+        <section class="carousel-section">
+          <h2 class="carousel-title">Popular Movies</h2>
+          <div class="carousel card-list"></div>
+        </section>
+      </div>
+
+      <!-- Library Tab -->
+      <div id="library-tab" class="tab">
+        <h2>Library</h2>
+        <p>Coming soon...</p>
+      </div>
+
+      <!-- Search Tab -->
+      <div id="search-tab" class="tab">
+        <h2>Search</h2>
+        <form id="search-form" onsubmit="event.preventDefault();">
+          <input type="text" id="search-input" placeholder="Search for a movie..." autocomplete="off" />
+        </form>
+        <section class="carousel-section">
+          <h2 class="carousel-title">Search Results</h2>
+          <div id="search-results" class="carousel"></div>
+        </section>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settings-tab" class="tab">
+        <h2>Settings</h2>
+
+        <!-- TMDB API Key -->
+        <form id="api-key-form" onsubmit="event.preventDefault(); saveApiKey();">
+          <label for="api-key-input">TMDB API Key:</label>
+          <input type="text" id="api-key-input" placeholder="Enter your TMDB API key" autocomplete="off" />
+          <button type="submit">Save</button>
+        </form>
+        <div id="api-key-status"></div>
+
+        <!-- Preferred Player -->
+        <form id="player-form" onsubmit="event.preventDefault(); savePlayerChoice();">
+          <label for="player-select">Preferred Player:</label>
+          <select id="player-select">
+            <option value="internal">Internal Player</option>
+            <option value="infuse">Infuse</option>
+            <option value="vlc">VLC</option>
+            <option value="outplayer">Outplayer</option>
+          </select>
+          <button type="submit">Save</button>
+        </form>
+        <div id="player-status"></div>
+
+        <!-- Addon Management Section -->
+        <section id="addon-management">
+          <h3>Addons & Providers</h3>
+          <button id="addon-add-btn" type="button">Add Addon</button>
+          <ul id="addon-list"></ul>
+        </section>
+      </div>
+    </div>
+
+    <!-- Movie Details Modal -->
+    <div id="movie-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Addon Modal -->
+    <div id="addon-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeAddonModal()">&times;</span>
+        <h3>Add/Edit Addon</h3>
+        <form id="addon-form" onsubmit="event.preventDefault(); saveAddon();">
+          <label for="addon-name">Name:</label>
+          <input id="addon-name" type="text" required />
+          <label for="addon-type">Type:</label>
+          <select id="addon-type">
+            <option value="scraper">Scraper</option>
+            <option value="catalog">Catalog</option>
+            <option value="debrid">Debrid</option>
+            <option value="torrent">Torrent</option>
+          </select>
+          <label for="addon-url">URL/Endpoint:</label>
+          <input id="addon-url" type="text" required />
+          <label for="addon-api-key">API Key (if needed):</label>
+          <input id="addon-api-key" type="text" />
+          <button type="submit">Save Addon</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Addon Metadata Modal -->
+    <div id="addon-meta-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeAddonMetaModal()">&times;</span>
+        <h3>Addon Metadata</h3>
+        <div id="addon-meta-results"></div>
+      </div>
+    </div>
+
+    <!-- Bottom iOS-style Tab Bar -->
+    <nav class="tab-bar">
+      <button data-tab="home-tab" aria-label="Home">🏠 Home</button>
+      <button data-tab="library-tab" aria-label="Library">📚 Library</button>
+      <button data-tab="search-tab" aria-label="Search">🔍 Search</button>
+      <button data-tab="settings-tab" aria-label="Settings">⚙️ Settings</button>
+    </nav>
+
+  </div>
+
+  <!-- HLS.js Player support -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <!-- Main JavaScript (standalone version) -->
+  <script src="app.js"></script>
+</body>
 </html>
