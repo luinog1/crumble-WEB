@@ -672,9 +672,130 @@ function removeAddon(idx) {
   renderAddonList();
 }
 
-function saveAddon() {
+async function saveAddon() {
   console.log('Save addon called');
-  // Placeholder
+  
+  const urlInput = document.getElementById('addon-url');
+  const statusDiv = document.getElementById('addon-status');
+  const submitBtn = document.querySelector('#addon-form button[type="submit"]');
+  
+  if (!urlInput || !urlInput.value.trim()) {
+    showAddonStatus('Please enter a valid addon URL', 'error');
+    return;
+  }
+  
+  let addonUrl = urlInput.value.trim();
+  
+  // Ensure URL ends with manifest.json
+  if (!addonUrl.endsWith('/manifest.json')) {
+    if (addonUrl.endsWith('/')) {
+      addonUrl += 'manifest.json';
+    } else {
+      addonUrl += '/manifest.json';
+    }
+  }
+  
+  // Show loading state
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Fetching...';
+  showAddonStatus('Fetching addon manifest...', 'loading');
+  
+  try {
+    // Fetch manifest.json from the addon URL
+    const response = await fetch(addonUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch manifest: ${response.status} ${response.statusText}`);
+    }
+    
+    const manifest = await response.json();
+    
+    // Validate manifest structure
+    if (!manifest.id || !manifest.name || !manifest.resources) {
+      throw new Error('Invalid manifest format - missing required fields (id, name, resources)');
+    }
+    
+    // Extract addon information from manifest
+    const addonInfo = {
+      id: manifest.id,
+      name: manifest.name,
+      description: manifest.description || '',
+      version: manifest.version || '1.0.0',
+      url: addonUrl.replace('/manifest.json', ''), // Base URL without manifest.json
+      manifestUrl: addonUrl,
+      resources: manifest.resources,
+      types: manifest.types || [],
+      catalogs: manifest.catalogs || [],
+      // Determine addon type based on resources
+      type: determineAddonType(manifest.resources),
+      dateAdded: new Date().toISOString()
+    };
+    
+    // Get existing addons
+    const existingAddons = getAddons();
+    
+    // Check if addon already exists
+    const existingIndex = existingAddons.findIndex(addon => addon.id === addonInfo.id);
+    
+    if (existingIndex >= 0) {
+      // Update existing addon
+      existingAddons[existingIndex] = addonInfo;
+      showAddonStatus(`Updated addon: ${addonInfo.name}`, 'success');
+    } else {
+      // Add new addon
+      existingAddons.push(addonInfo);
+      showAddonStatus(`Added addon: ${addonInfo.name}`, 'success');
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('addons', JSON.stringify(existingAddons));
+    
+    // Refresh addon list display
+    renderAddonList();
+    
+    // Clear form and close modal after short delay
+    setTimeout(() => {
+      urlInput.value = '';
+      closeAddonModal();
+    }, 1500);
+    
+  } catch (error) {
+    console.error('Error fetching addon manifest:', error);
+    showAddonStatus(`Error: ${error.message}`, 'error');
+  } finally {
+    // Reset button state
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Add Addon';
+  }
+}
+
+// Helper function to determine addon type from resources
+function determineAddonType(resources) {
+  if (!resources || !Array.isArray(resources)) return 'unknown';
+  
+  if (resources.includes('stream')) return 'torrent';
+  if (resources.includes('catalog')) return 'catalog';
+  if (resources.includes('meta')) return 'meta';
+  if (resources.includes('subtitles')) return 'subtitles';
+  
+  return 'other';
+}
+
+// Helper function to show addon status messages
+function showAddonStatus(message, type) {
+  const statusDiv = document.getElementById('addon-status');
+  if (!statusDiv) return;
+  
+  statusDiv.textContent = message;
+  statusDiv.className = `status-message status-${type}`;
+  statusDiv.style.display = 'block';
+  
+  // Auto-hide success/loading messages after 3 seconds
+  if (type === 'success' || type === 'loading') {
+    setTimeout(() => {
+      statusDiv.style.display = 'none';
+    }, 3000);
+  }
 }
 
 function showAddonModal() {

@@ -88,22 +88,12 @@
     <div id="addon-modal" class="modal" style="display:none;">
       <div class="modal-content">
         <span class="close" onclick="closeAddonModal()">&times;</span>
-        <h3>Add/Edit Addon</h3>
+        <h3>Add Addon</h3>
         <form id="addon-form" onsubmit="event.preventDefault(); saveAddon();">
-          <label for="addon-name">Name:</label>
-          <input id="addon-name" type="text" required />
-          <label for="addon-type">Type:</label>
-          <select id="addon-type">
-            <option value="scraper">Scraper</option>
-            <option value="catalog">Catalog</option>
-            <option value="debrid">Debrid</option>
-            <option value="torrent">Torrent</option>
-          </select>
-          <label for="addon-url">URL/Endpoint:</label>
-          <input id="addon-url" type="text" required />
-          <label for="addon-api-key">API Key (if needed):</label>
-          <input id="addon-api-key" type="text" />
-          <button type="submit">Save Addon</button>
+          <label for="addon-url">Addon URL:</label>
+          <input id="addon-url" type="url" placeholder="https://torrentio.strem.fun/manifest.json" required />
+          <div id="addon-status" class="status-message" style="display:none;"></div>
+          <button type="submit">Add Addon</button>
         </form>
       </div>
     </div>
