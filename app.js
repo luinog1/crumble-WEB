@@ -1033,17 +1033,22 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Setup addon modal
-  const addonAddBtn = document.getElementById('addon-add-btn');
+  const addonAddBtn = document.getElementById('add-addon-btn');
   if (addonAddBtn) {
-    addonAddBtn.addEventListener('click', function() {
+    addonAddBtn.addEventListener('click', function(e) {
+      e.preventDefault();
       console.log('Add addon button clicked');
-      if (typeof showAddonModal === 'function') {
-        showAddonModal();
+      if (typeof window.showAddonModal === 'function') {
+        console.log('Calling showAddonModal()');
+        window.showAddonModal();
       } else {
-        alert('Addon functionality not yet implemented');
+        console.error('showAddonModal is not a function');
+        alert('Error: Addon functionality not available');
       }
     });
-    console.log('Addon button setup');
+    console.log('Addon button setup complete');
+  } else {
+    console.error('Could not find add-addon-btn element');
   }
 
   console.log('App initialization complete');
