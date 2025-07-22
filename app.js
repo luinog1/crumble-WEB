@@ -699,7 +699,7 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
       error: uploadData.error
     }, null, 2));
     
-    // Check for different response formats
+    // Check for error responses
     if (uploadData.status === 'error' || uploadData.error) {
       const errorInfo = uploadData.error || {};
       const errorMsg = `AllDebrid API error (${errorInfo.code || 'unknown'}): ${errorInfo.message || 'Unknown error'}`;
@@ -711,32 +711,41 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
       throw new Error(errorMsg);
     }
     
-    // Handle different response formats
+    // Handle successful response
     if (!uploadData.data) {
-      // Some AllDebrid endpoints return data directly
-      if (uploadData.id) {
-        console.log('Using direct response as data');
-        uploadData.data = { ...uploadData };
-      } else {
-        console.error('Unexpected AllDebrid response format:', uploadData);
-        throw new Error('Invalid response format from AllDebrid: Missing data object');
-      }
+      console.error('Unexpected AllDebrid response format (missing data):', uploadData);
+      throw new Error('Invalid response format from AllDebrid: Missing data object');
     }
     
-    // Check for magnet ID in various possible locations
-    const magnetId = uploadData.data.id || 
-                   (uploadData.data.magnets && uploadData.data.magnets[0]?.id) ||
-                   uploadData.id;
+    // For AllDebrid v4 API, the magnet ID might be in different locations
+    // Try to find the magnet ID in various possible locations
+    let magnetId = null;
     
+    // Check common locations for the magnet ID
+    if (uploadData.data.id) {
+      // Direct ID in data object
+      magnetId = uploadData.data.id;
+    } else if (uploadData.data.magnets && Array.isArray(uploadData.data.magnets) && uploadData.data.magnets[0]?.id) {
+      // ID in first magnet object
+      magnetId = uploadData.data.magnets[0].id;
+    } else if (uploadData.data.magnet) {
+      // Some endpoints return a magnet object with an ID
+      magnetId = uploadData.data.magnet.id || uploadData.data.magnet.magnetId;
+    } else if (uploadData.data.links && Array.isArray(uploadData.data.links) && uploadData.data.links[0]?.id) {
+      // ID in first link object
+      magnetId = uploadData.data.links[0].id;
+    } else if (uploadData.id) {
+      // Fallback to root ID
+      magnetId = uploadData.id;
+    }
+    
+    // If we still don't have an ID, log the full response for debugging
     if (!magnetId) {
-      console.error('Could not find magnet ID in response:', uploadData);
-      throw new Error('Could not determine magnet ID from AllDebrid response');
+      console.error('Could not find magnet ID in response. Full response:', JSON.stringify(uploadData, null, 2));
+      throw new Error('Could not determine magnet ID from AllDebrid response. Check console for details.');
     }
     
-    // Ensure the data structure is consistent with the magnet ID
-    if (!uploadData.data.id) {
-      uploadData.data.id = magnetId;
-    }
+    console.log('Found magnet ID:', magnetId);
     console.log('Magnet uploaded successfully, ID:', magnetId);
     
     // 2. Check magnet status until it's ready
