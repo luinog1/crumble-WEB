@@ -1234,6 +1234,11 @@ function closeAddonModal() {
   }
 }
 
+// Alias for HTML compatibility
+function openAddonModal() {
+  showAddonModal();
+}
+
 function showAddonMetadata(query) {
   console.log('Show addon metadata for:', query);
   // Placeholder
@@ -1250,10 +1255,10 @@ function closeAddonMetaModal() {
 window.saveApiKey = window.saveApiKey;
 window.savePlayerChoice = window.savePlayerChoice;
 window.showAddonModal = showAddonModal;
+window.openAddonModal = openAddonModal;
 window.closeAddonModal = closeAddonModal;
 window.saveAddon = saveAddon;
 window.editAddon = editAddon;
-window.removeAddon = removeAddon;
 window.showAddonMetadata = showAddonMetadata;
 window.closeAddonMetaModal = closeAddonMetaModal;
 window.closeModal = closeModal;
