@@ -638,9 +638,113 @@ async function convertViaRealDebrid(magnetUrl, apiKey) {
   }
 }
 
-// AllDebrid API integration (simplified)
+// AllDebrid API integration
 async function convertViaAllDebrid(magnetUrl, apiKey) {
-  throw new Error('AllDebrid integration not yet implemented. Please use Real-Debrid for now.');
+  try {
+    console.log('Starting AllDebrid conversion for magnet link');
+    
+    // 1. Upload the magnet to AllDebrid
+    const uploadUrl = `https://api.alldebrid.com/v4/magnet/upload?agent=crumble&apikey=${encodeURIComponent(apiKey)}&magnet=${encodeURIComponent(magnetUrl)}`;
+    console.log('Uploading magnet to AllDebrid:', uploadUrl);
+    
+    const uploadResponse = await fetch(uploadUrl);
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Failed to upload magnet: ${uploadResponse.status} - ${errorText}`);
+    }
+    
+    const uploadData = await uploadResponse.json();
+    
+    // Check for API errors
+    if (uploadData.error) {
+      throw new Error(`AllDebrid API error: ${uploadData.error.message || 'Unknown error'}`);
+    }
+    
+    if (!uploadData.data || !uploadData.data.id) {
+      throw new Error('Invalid response from AllDebrid: Missing magnet ID');
+    }
+    
+    const magnetId = uploadData.data.id;
+    console.log('Magnet uploaded successfully, ID:', magnetId);
+    
+    // 2. Check magnet status until it's ready
+    const maxAttempts = 30; // 30 attempts with 2s delay = 1 minute max wait
+    let attempts = 0;
+    let statusData;
+    
+    while (attempts < maxAttempts) {
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between checks
+      
+      const statusUrl = `https://api.alldebrid.com/v4/magnet/status?agent=crumble&apikey=${encodeURIComponent(apiKey)}&id=${magnetId}`;
+      console.log(`Checking status (attempt ${attempts}/${maxAttempts}):`, statusUrl);
+      
+      const statusResponse = await fetch(statusUrl);
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        throw new Error(`Failed to check status: ${statusResponse.status} - ${errorText}`);
+      }
+      
+      statusData = await statusResponse.json();
+      
+      // Check for API errors
+      if (statusData.error) {
+        throw new Error(`AllDebrid API error: ${statusData.error.message || 'Unknown error'}`);
+      }
+      
+      const status = statusData.data.magnets[0]?.status;
+      console.log(`Magnet status: ${status}`);
+      
+      if (status === 'Ready') {
+        console.log('Magnet is ready, getting download links');
+        break;
+      } else if (status === 'Error') {
+        throw new Error('Magnet processing failed on AllDebrid');
+      } else if (status === 'File unsupported') {
+        throw new Error('This file type is not supported by AllDebrid');
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('Magnet processing timed out on AllDebrid');
+      }
+    }
+    
+    // 3. Get the first available link
+    const links = statusData.data.magnets[0]?.links;
+    if (!links || links.length === 0) {
+      throw new Error('No download links found in AllDebrid response');
+    }
+    
+    // 4. Get the direct download link for the first file
+    const link = links[0];
+    const downloadUrl = `https://api.alldebrid.com/v4/link/unlock?agent=crumble&apikey=${encodeURIComponent(apiKey)}&link=${encodeURIComponent(link.link)}`;
+    console.log('Getting direct download link:', downloadUrl);
+    
+    const downloadResponse = await fetch(downloadUrl);
+    if (!downloadResponse.ok) {
+      const errorText = await downloadResponse.text();
+      throw new Error(`Failed to get download link: ${downloadResponse.status} - ${errorText}`);
+    }
+    
+    const downloadData = await downloadResponse.json();
+    
+    // Check for API errors
+    if (downloadData.error) {
+      throw new Error(`AllDebrid API error: ${downloadData.error.message || 'Unknown error'}`);
+    }
+    
+    const directLink = downloadData.data?.link;
+    if (!directLink) {
+      throw new Error('No direct download link found in AllDebrid response');
+    }
+    
+    console.log('Successfully got direct download link:', directLink);
+    return directLink;
+    
+  } catch (error) {
+    console.error('AllDebrid conversion error:', error);
+    throw new Error(`AllDebrid conversion failed: ${error.message}`);
+  }
 }
 
 // Premiumize API integration (simplified)
