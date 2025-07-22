@@ -18,6 +18,46 @@ async function getPopularMovies() {
   return data.results;
 }
 
+// Fetch trending movies
+async function getTrendingMovies() {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("No TMDB API key set.");
+  const response = await fetch(`${BASE_URL}/trending/movie/day?api_key=${apiKey}&language=en-US`);
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data = await response.json();
+  return data.results;
+}
+
+// Fetch latest movies
+async function getLatestMovies() {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("No TMDB API key set.");
+  const response = await fetch(`${BASE_URL}/movie/now_playing?api_key=${apiKey}&language=en-US&page=1`);
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data = await response.json();
+  return data.results;
+}
+
+// Fetch trending TV shows
+async function getTrendingTV() {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("No TMDB API key set.");
+  const response = await fetch(`${BASE_URL}/trending/tv/day?api_key=${apiKey}&language=en-US`);
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data = await response.json();
+  return data.results;
+}
+
+// Fetch popular TV shows
+async function getPopularTV() {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("No TMDB API key set.");
+  const response = await fetch(`${BASE_URL}/tv/popular?api_key=${apiKey}&language=en-US&page=1`);
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data = await response.json();
+  return data.results;
+}
+
 // Search for movies
 async function searchMovies(query) {
   const apiKey = getApiKey();
@@ -95,8 +135,8 @@ window.saveApiKey = function() {
   statusDiv.style.color = '#88ff88';
 
   // Try to load popular movies if TMDB functions are available
-  if (typeof loadPopularMovies === 'function') {
-    loadPopularMovies();
+  if (typeof loadHomeCatalogs === 'function') {
+    loadHomeCatalogs();
   }
 };
 
@@ -508,24 +548,158 @@ function displayMovies(movies, containerSelector) {
   });
 }
 
-// --- Load Popular Movies from TMDB ---
-async function loadPopularMovies() {
-  const container = document.querySelector(".card-list");
+// --- Display TV Shows ---
+function displayTVShows(shows, containerSelector) {
+  const container = document.querySelector(containerSelector);
   if (!container) {
-    console.error('Card list container not found');
+    console.error('Container not found:', containerSelector);
+    return;
+  }
+  
+  container.innerHTML = ''; // Clear existing content
+  
+  shows.forEach(show => {
+    const showCard = document.createElement('div');
+    showCard.className = 'carousel-card';
+    
+    const posterUrl = show.poster_path 
+      ? `https://image.tmdb.org/t/p/w500${show.poster_path}` 
+      : 'https://via.placeholder.com/500x750/333/fff?text=No+Image';
+    
+    showCard.innerHTML = `
+      <img src="${posterUrl}" alt="${show.name}" loading="lazy">
+      <div class="movie-info">
+        <h3>${show.name}</h3>
+        <p class="movie-year">${show.first_air_date ? show.first_air_date.split('-')[0] : 'N/A'}</p>
+        <p class="movie-rating">⭐ ${show.vote_average ? show.vote_average.toFixed(1) : 'N/A'}</p>
+        <div class="movie-actions">
+          <button class="btn-play" onclick="event.stopPropagation(); alert('TV show streaming coming soon!')">▶️ Play</button>
+          <button class="btn-trailer" onclick="event.stopPropagation(); alert('TV show trailers coming soon!')">🎬 Trailer</button>
+        </div>
+      </div>
+    `;
+    
+    // TV show card click handler (for general info/details)
+    showCard.addEventListener('click', function(e) {
+      // Only handle click if it's not on a button
+      if (!e.target.closest('button')) {
+        console.log('TV show card clicked:', show.name);
+        alert(`TV Show Details for "${show.name}" - Coming soon!`);
+      }
+    });
+    
+    container.appendChild(showCard);
+  });
+}
+
+// --- Load All Home Page Catalogs ---
+async function loadHomeCatalogs() {
+  console.log('Loading all home page catalogs...');
+  
+  // Load all catalogs in parallel for better performance
+  await Promise.all([
+    loadTrendingMovies(),
+    loadPopularMovies(),
+    loadLatestMovies(),
+    loadTrendingTV(),
+    loadPopularTV()
+  ]);
+  
+  console.log('All home catalogs loaded successfully');
+}
+
+// --- Load Trending Movies ---
+async function loadTrendingMovies() {
+  const container = document.querySelector("#trending-movies");
+  if (!container) {
+    console.error('Trending movies container not found');
+    return;
+  }
+
+  try {
+    console.log('Loading trending movies from TMDB...');
+    const trending = await getTrendingMovies();
+    displayMovies(trending, "#trending-movies");
+    console.log('Trending movies loaded successfully:', trending.length, 'movies');
+  } catch (e) {
+    console.error('Error loading trending movies:', e);
+    container.innerHTML = `<p style="color:#ff8888;">Error loading trending movies</p>`;
+  }
+}
+
+// --- Load Popular Movies ---
+async function loadPopularMovies() {
+  const container = document.querySelector("#popular-movies");
+  if (!container) {
+    console.error('Popular movies container not found');
     return;
   }
 
   try {
     console.log('Loading popular movies from TMDB...');
     const popular = await getPopularMovies();
-    displayMovies(popular, ".card-list");
+    displayMovies(popular, "#popular-movies");
     console.log('Popular movies loaded successfully:', popular.length, 'movies');
   } catch (e) {
-    console.error('Error loading movies:', e);
-    if (container) {
-      container.innerHTML = `<p style="color:#ff8888;">Please enter your TMDB API key in Settings to view movies.</p>`;
-    }
+    console.error('Error loading popular movies:', e);
+    container.innerHTML = `<p style="color:#ff8888;">Please enter your TMDB API key in Settings to view movies.</p>`;
+  }
+}
+
+// --- Load Latest Movies ---
+async function loadLatestMovies() {
+  const container = document.querySelector("#latest-movies");
+  if (!container) {
+    console.error('Latest movies container not found');
+    return;
+  }
+
+  try {
+    console.log('Loading latest movies from TMDB...');
+    const latest = await getLatestMovies();
+    displayMovies(latest, "#latest-movies");
+    console.log('Latest movies loaded successfully:', latest.length, 'movies');
+  } catch (e) {
+    console.error('Error loading latest movies:', e);
+    container.innerHTML = `<p style="color:#ff8888;">Error loading latest movies</p>`;
+  }
+}
+
+// --- Load Trending TV Shows ---
+async function loadTrendingTV() {
+  const container = document.querySelector("#trending-tv");
+  if (!container) {
+    console.error('Trending TV container not found');
+    return;
+  }
+
+  try {
+    console.log('Loading trending TV shows from TMDB...');
+    const trending = await getTrendingTV();
+    displayTVShows(trending, "#trending-tv");
+    console.log('Trending TV shows loaded successfully:', trending.length, 'shows');
+  } catch (e) {
+    console.error('Error loading trending TV shows:', e);
+    container.innerHTML = `<p style="color:#ff8888;">Error loading trending TV shows</p>`;
+  }
+}
+
+// --- Load Popular TV Shows ---
+async function loadPopularTV() {
+  const container = document.querySelector("#popular-tv");
+  if (!container) {
+    console.error('Popular TV container not found');
+    return;
+  }
+
+  try {
+    console.log('Loading popular TV shows from TMDB...');
+    const popular = await getPopularTV();
+    displayTVShows(popular, "#popular-tv");
+    console.log('Popular TV shows loaded successfully:', popular.length, 'shows');
+  } catch (e) {
+    console.error('Error loading popular TV shows:', e);
+    container.innerHTML = `<p style="color:#ff8888;">Error loading popular TV shows</p>`;
   }
 }
 
@@ -589,7 +763,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupBottomNavigation();
 
   // Load popular movies
-  loadPopularMovies();
+  loadHomeCatalogs();
 
   // Setup search functionality
   const searchInput = document.getElementById("search-input");
