@@ -648,20 +648,38 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
     console.log('Uploading magnet to AllDebrid:', uploadUrl);
     
     const uploadResponse = await fetch(uploadUrl);
+    const responseText = await uploadResponse.text();
+    console.log('AllDebrid upload response status:', uploadResponse.status);
+    console.log('AllDebrid upload response:', responseText);
+    
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      throw new Error(`Failed to upload magnet: ${uploadResponse.status} - ${errorText}`);
+      throw new Error(`Failed to upload magnet: ${uploadResponse.status} - ${responseText}`);
     }
     
-    const uploadData = await uploadResponse.json();
+    let uploadData;
+    try {
+      uploadData = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse AllDebrid response as JSON:', e);
+      throw new Error(`Invalid JSON response from AllDebrid: ${responseText}`);
+    }
     
     // Check for API errors
     if (uploadData.error) {
-      throw new Error(`AllDebrid API error: ${uploadData.error.message || 'Unknown error'}`);
+      const errorMessage = uploadData.error.message || 'Unknown error';
+      const errorCode = uploadData.error.code || 'NO_CODE';
+      console.error('AllDebrid API error:', { errorCode, errorMessage, fullError: uploadData.error });
+      throw new Error(`AllDebrid API error (${errorCode}): ${errorMessage}`);
     }
     
-    if (!uploadData.data || !uploadData.data.id) {
-      throw new Error('Invalid response from AllDebrid: Missing magnet ID');
+    if (!uploadData.data) {
+      console.error('Unexpected AllDebrid response format:', uploadData);
+      throw new Error('Invalid response format from AllDebrid: Missing data object');
+    }
+    
+    if (!uploadData.data.id) {
+      console.error('AllDebrid response missing magnet ID:', uploadData);
+      throw new Error('Invalid response from AllDebrid: Missing magnet ID in data object');
     }
     
     const magnetId = uploadData.data.id;
@@ -679,29 +697,67 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
       const statusUrl = `https://api.alldebrid.com/v4/magnet/status?agent=crumble&apikey=${encodeURIComponent(apiKey)}&id=${magnetId}`;
       console.log(`Checking status (attempt ${attempts}/${maxAttempts}):`, statusUrl);
       
-      const statusResponse = await fetch(statusUrl);
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text();
-        throw new Error(`Failed to check status: ${statusResponse.status} - ${errorText}`);
-      }
+      let statusResponse;
+      let statusResponseText;
       
-      statusData = await statusResponse.json();
-      
-      // Check for API errors
-      if (statusData.error) {
-        throw new Error(`AllDebrid API error: ${statusData.error.message || 'Unknown error'}`);
-      }
-      
-      const status = statusData.data.magnets[0]?.status;
-      console.log(`Magnet status: ${status}`);
-      
-      if (status === 'Ready') {
-        console.log('Magnet is ready, getting download links');
-        break;
-      } else if (status === 'Error') {
-        throw new Error('Magnet processing failed on AllDebrid');
-      } else if (status === 'File unsupported') {
-        throw new Error('This file type is not supported by AllDebrid');
+      try {
+        statusResponse = await fetch(statusUrl);
+        statusResponseText = await statusResponse.text();
+        console.log('Status response status:', statusResponse.status);
+        console.log('Status response:', statusResponseText);
+        
+        if (!statusResponse.ok) {
+          throw new Error(`HTTP ${statusResponse.status}: ${statusResponseText}`);
+        }
+        
+        statusData = JSON.parse(statusResponseText);
+        
+        // Check for API errors
+        if (statusData.error) {
+          const errorCode = statusData.error.code || 'NO_CODE';
+          const errorMessage = statusData.error.message || 'Unknown error';
+          console.error('AllDebrid status API error:', { 
+            errorCode, 
+            errorMessage, 
+            fullError: statusData.error 
+          });
+          throw new Error(`AllDebrid API error (${errorCode}): ${errorMessage}`);
+        }
+        
+        if (!statusData.data || !statusData.data.magnets || !Array.isArray(statusData.data.magnets)) {
+          console.error('Unexpected status response format:', statusData);
+          throw new Error('Invalid status response format from AllDebrid');
+        }
+        
+        const magnetInfo = statusData.data.magnets[0];
+        if (!magnetInfo) {
+          console.error('No magnet info in response:', statusData);
+          throw new Error('No magnet information available in response');
+        }
+        
+        const status = magnetInfo.status;
+        console.log(`Magnet status (${attempts}/${maxAttempts}):`, status);
+        
+        if (status === 'Ready') {
+          console.log('Magnet is ready, getting download links');
+          break;
+        } else if (status === 'Error') {
+          throw new Error('Magnet processing failed on AllDebrid');
+        } else if (status === 'File unsupported') {
+          throw new Error('This file type is not supported by AllDebrid');
+        } else if (status === 'Downloading') {
+          console.log('Magnet is still downloading, progress:', magnetInfo.progress ? `${magnetInfo.progress}%` : 'unknown');
+        } else if (status === 'Queued') {
+          console.log('Magnet is in queue, position:', magnetInfo.position || 'unknown');
+        }
+        
+      } catch (error) {
+        console.error('Error checking magnet status:', error);
+        if (attempts >= maxAttempts) {
+          throw new Error(`Failed to check magnet status after ${maxAttempts} attempts: ${error.message}`);
+        }
+        console.log('Retrying...');
+        continue;
       }
       
       if (attempts >= maxAttempts) {
@@ -710,36 +766,77 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
     }
     
     // 3. Get the first available link
-    const links = statusData.data.magnets[0]?.links;
-    if (!links || links.length === 0) {
+    const magnetInfo = statusData.data.magnets[0];
+    if (!magnetInfo.links || !Array.isArray(magnetInfo.links) || magnetInfo.links.length === 0) {
+      console.error('No download links in magnet info:', magnetInfo);
       throw new Error('No download links found in AllDebrid response');
     }
     
+    const links = magnetInfo.links;
+    console.log(`Found ${links.length} available links`);
+    
     // 4. Get the direct download link for the first file
     const link = links[0];
+    if (!link || !link.link) {
+      console.error('Invalid link object in response:', link);
+      throw new Error('Invalid link data in AllDebrid response');
+    }
+    
+    console.log('Selected link for unlocking:', link);
     const downloadUrl = `https://api.alldebrid.com/v4/link/unlock?agent=crumble&apikey=${encodeURIComponent(apiKey)}&link=${encodeURIComponent(link.link)}`;
-    console.log('Getting direct download link:', downloadUrl);
+    console.log('Requesting direct download link from:', downloadUrl);
     
-    const downloadResponse = await fetch(downloadUrl);
-    if (!downloadResponse.ok) {
-      const errorText = await downloadResponse.text();
-      throw new Error(`Failed to get download link: ${downloadResponse.status} - ${errorText}`);
+    let downloadResponse;
+    let downloadResponseText;
+    let downloadData;
+    
+    try {
+      downloadResponse = await fetch(downloadUrl);
+      downloadResponseText = await downloadResponse.text();
+      console.log('Download link response status:', downloadResponse.status);
+      console.log('Download link response:', downloadResponseText);
+      
+      if (!downloadResponse.ok) {
+        throw new Error(`HTTP ${downloadResponse.status}: ${downloadResponseText}`);
+      }
+      
+      try {
+        downloadData = JSON.parse(downloadResponseText);
+      } catch (e) {
+        console.error('Failed to parse download link response as JSON:', e);
+        throw new Error(`Invalid JSON response from AllDebrid: ${downloadResponseText}`);
+      }
+      
+      // Check for API errors
+      if (downloadData.error) {
+        const errorCode = downloadData.error.code || 'NO_CODE';
+        const errorMessage = downloadData.error.message || 'Unknown error';
+        console.error('AllDebrid download API error:', { 
+          errorCode, 
+          errorMessage, 
+          fullError: downloadData.error 
+        });
+        throw new Error(`AllDebrid API error (${errorCode}): ${errorMessage}`);
+      }
+      
+      if (!downloadData.data) {
+        console.error('Unexpected download response format:', downloadData);
+        throw new Error('Invalid response format from AllDebrid (missing data)');
+      }
+      
+      const directLink = downloadData.data.link;
+      if (!directLink) {
+        console.error('No direct link in download data:', downloadData);
+        throw new Error('No direct download link found in AllDebrid response');
+      }
+    
+      console.log('Successfully got direct download link:', directLink);
+      return directLink;
+      
+    } catch (error) {
+      console.error('Error getting download link:', error);
+      throw new Error(`Failed to get download link: ${error.message}`);
     }
-    
-    const downloadData = await downloadResponse.json();
-    
-    // Check for API errors
-    if (downloadData.error) {
-      throw new Error(`AllDebrid API error: ${downloadData.error.message || 'Unknown error'}`);
-    }
-    
-    const directLink = downloadData.data?.link;
-    if (!directLink) {
-      throw new Error('No direct download link found in AllDebrid response');
-    }
-    
-    console.log('Successfully got direct download link:', directLink);
-    return directLink;
     
   } catch (error) {
     console.error('AllDebrid conversion error:', error);
