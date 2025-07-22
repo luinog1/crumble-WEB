@@ -1,107 +1,413 @@
 body {
   font-family: system-ui, sans-serif;
   background: #18181c;
-  color: #eee;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #0f0f0f;
+  color: #ffffff;
+  overflow-x: hidden;
+  line-height: 1.6;
 }
 
 .app {
-  max-width: 600px;
-  margin: auto;
   min-height: 100vh;
+  display: flex;
+  background: #0f0f0f;
+}
+
+/* Sidebar Navigation */
+.sidebar {
+  width: 80px;
+  background: #1a1a1a;
+  border-right: 1px solid #333;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  z-index: 100;
   display: flex;
   flex-direction: column;
 }
 
-#page-content {
-  flex: 1 1 auto;
-  padding-bottom: 64px;
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px 0;
 }
 
+.logo {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 0 10px;
+}
+
+.logo h1 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #ffffff;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.nav-menu {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0 15px;
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 15px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+}
+
+.nav-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.nav-btn.active {
+  background: #e50914;
+  color: #fff;
+}
+
+.nav-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Main Content */
+.main-content {
+  margin-left: 80px;
+  flex: 1;
+  min-height: 100vh;
+  background: #0f0f0f;
+}
+
+/* Tab System */
 .tab {
   display: none;
-}
-.tab.active {
-  display: block;
-  animation: fadeIn 0.3s;
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  min-height: 100vh;
 }
 
-/* Carousel Section */
+.tab.active {
+  display: block;
+}
+
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  padding: 60px 40px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid #333;
+}
+
+.hero-content {
+  max-width: 800px;
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #cccccc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.2rem;
+  color: #888;
+  font-weight: 400;
+}
+
+/* Content Sections */
+.content-sections {
+  padding: 0 40px;
+}
+
 .carousel-section {
-  margin-top: 2em;
+  margin-bottom: 50px;
 }
-.carousel-title {
-  font-size: 1.15em;
-  margin: 0 0 0.5em 1em;
-  font-weight: 500;
-  letter-spacing: 0.03em;
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 20px;
+  padding-left: 0;
 }
+
 .carousel {
   display: flex;
   overflow-x: auto;
-  gap: 0.6em;
-  padding: 0.5em 0.5em 1em 0.5em;
+  gap: 16px;
+  padding: 0 0 20px 0;
   scrollbar-width: none;
-  margin: 0 0.2em;
+  -ms-overflow-style: none;
 }
+
 .carousel::-webkit-scrollbar {
   display: none;
 }
 
-/* Card Style */
+/* Card Styles */
 .carousel-card,
 .card {
-  min-width: 85px;
-  max-width: 85px;
-  background: #23232b;
-  border-radius: 6px;
-  padding: 0.15em 0.15em 0.4em 0.15em;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 2px 8px #0002;
-  transition: transform 0.2s;
+  min-width: 160px;
+  max-width: 160px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
   cursor: pointer;
+  border: 1px solid transparent;
 }
+
 .carousel-card:hover,
 .card:hover {
-  transform: translateY(-3px) scale(1.04);
-  background: #2d2d38;
+  transform: translateY(-8px) scale(1.05);
+  border-color: #e50914;
+  box-shadow: 0 8px 25px rgba(229, 9, 20, 0.3);
 }
+
 .carousel-card img,
 .card img {
-  width: 70px;
-  height: 105px;
+  width: 100%;
+  height: 240px;
   object-fit: cover;
-  border-radius: 4px;
-  margin-bottom: 0.3em;
-  background: #444;
+  background: #333;
+  display: block;
 }
+
+.card-content {
+  padding: 12px;
+}
+
 .carousel-card h4,
 .card h3 {
-  margin: 0;
-  font-size: 0.75em;
-  text-align: center;
-  font-weight: 400;
-  color: #fff;
-  margin-bottom: 0.2em;
-  line-height: 1.1;
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .carousel-card p,
 .card p {
   margin: 0;
-  font-size: 0.7em;
-  color: #aaa;
+  font-size: 0.8rem;
+  color: #888;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Search Styles */
+.search-container {
+  padding: 40px;
+  border-bottom: 1px solid #333;
+  margin-bottom: 40px;
+}
+
+.search-input-container {
+  position: relative;
+  max-width: 600px;
+  margin-top: 20px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  z-index: 1;
+}
+
+#search-input {
+  width: 100%;
+  padding: 16px 16px 16px 50px;
+  border: 2px solid #333;
+  border-radius: 12px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+#search-input:focus {
+  border-color: #e50914;
+  outline: none;
+  background: #222;
+}
+
+#search-input::placeholder {
+  color: #666;
+}
+
+/* Empty State */
+.empty-state {
+  color: #666;
+  font-style: italic;
+  padding: 40px 0;
   text-align: center;
-  line-height: 1.1;
+}
+
+/* Card Actions */
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-play,
+.btn-trailer {
+  background: #e50914;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  flex: 1;
+}
+
+.btn-play:hover,
+.btn-trailer:hover {
+  background: #f40612;
+  transform: translateY(-1px);
+}
+
+.btn-trailer {
+  background: #333;
+}
+
+.btn-trailer:hover {
+  background: #444;
+}
+
+/* Settings Styles */
+.settings-section {
+  padding: 40px;
+}
+
+.settings-section form {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  border: 1px solid #333;
+}
+
+.settings-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.settings-section input,
+.settings-section select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: #0f0f0f;
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.3s ease;
+}
+
+.settings-section input:focus,
+.settings-section select:focus {
+  border-color: #e50914;
+  outline: none;
+}
+
+.settings-section button {
+  background: #e50914;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.settings-section button:hover {
+  background: #f40612;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+  }
+  
+  .main-content {
+    margin-left: 60px;
+  }
+  
+  .logo h1 {
+    font-size: 10px;
+  }
+  
+  .nav-btn {
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+  }
+  
+  .hero-section {
+    padding: 40px 20px;
+  }
+  
+  .hero-title {
+    font-size: 2rem;
+  }
+  
+  .content-sections {
+    padding: 0 20px;
+  }
+  
+  .carousel-card,
+  .card {
+    min-width: 140px;
+    max-width: 140px;
+  }
+  
+  .carousel-card img,
+  .card img {
+    height: 210px;
+  }
 }
 
 /* Search Input */

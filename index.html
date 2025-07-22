@@ -4,120 +4,185 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crumble</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#000000" />
-  <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
+  <meta name="theme-color" content="#0f0f0f" />
 </head>
 <body>
   <div class="app">
+    <!-- Left Sidebar Navigation -->
+    <nav class="sidebar">
+      <div class="sidebar-content">
+        <div class="logo">
+          <h1>CRUMBLE</h1>
+        </div>
+        <ul class="nav-menu">
+          <li><button class="nav-btn active" onclick="showTab('home-tab')" title="Home">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+          </button></li>
+          <li><button class="nav-btn" onclick="showTab('search-tab')" title="Search">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+          </button></li>
+          <li><button class="nav-btn" onclick="showTab('library-tab')" title="Library">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
+            </svg>
+          </button></li>
+          <li><button class="nav-btn" onclick="showTab('settings-tab')" title="Settings">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+            </svg>
+          </button></li>
+        </ul>
+      </div>
+    </nav>
 
-    <!-- Page Content Area -->
-    <div id="page-content">
+    <!-- Main Content Area -->
+    <main class="main-content">
 
       <!-- Home Tab -->
       <div id="home-tab" class="tab active">
-        <h1>🍿 Crumble</h1>
-        
-        <!-- Trending Movies -->
-        <section class="carousel-section">
-          <h2 class="carousel-title">🔥 Trending Movies</h2>
-          <div id="trending-movies" class="carousel"></div>
+        <!-- Hero Section (placeholder for future "Up Next" feature) -->
+        <section class="hero-section">
+          <div class="hero-content">
+            <h1 class="hero-title">Welcome to Crumble</h1>
+            <p class="hero-subtitle">Discover and stream your favorite movies and TV shows</p>
+          </div>
         </section>
         
-        <!-- Popular Movies -->
-        <section class="carousel-section">
-          <h2 class="carousel-title">⭐ Popular Movies</h2>
-          <div id="popular-movies" class="carousel"></div>
-        </section>
-        
-        <!-- Latest Movies -->
-        <section class="carousel-section">
-          <h2 class="carousel-title">🆕 Latest Movies</h2>
-          <div id="latest-movies" class="carousel"></div>
-        </section>
-        
-        <!-- Trending TV Shows -->
-        <section class="carousel-section">
-          <h2 class="carousel-title">📺 Trending TV Shows</h2>
-          <div id="trending-tv" class="carousel"></div>
-        </section>
-        
-        <!-- Popular TV Shows -->
-        <section class="carousel-section">
-          <h2 class="carousel-title">🎭 Popular TV Shows</h2>
-          <div id="popular-tv" class="carousel"></div>
-        </section>
+        <!-- Movie Carousels -->
+        <div class="content-sections">
+          <section class="carousel-section">
+            <h2 class="section-title">Trending Movies</h2>
+            <div id="trending-movies" class="carousel"></div>
+          </section>
+          
+          <section class="carousel-section">
+            <h2 class="section-title">Popular Movies</h2>
+            <div id="popular-movies" class="carousel"></div>
+          </section>
+          
+          <section class="carousel-section">
+            <h2 class="section-title">Latest Movies</h2>
+            <div id="latest-movies" class="carousel"></div>
+          </section>
+          
+          <section class="carousel-section">
+            <h2 class="section-title">Trending TV Shows</h2>
+            <div id="trending-tv" class="carousel"></div>
+          </section>
+          
+          <section class="carousel-section">
+            <h2 class="section-title">Popular TV Shows</h2>
+            <div id="popular-tv" class="carousel"></div>
+          </section>
+        </div>
       </div>
 
       <!-- Library Tab -->
       <div id="library-tab" class="tab">
-        <h2>Library</h2>
-        <p>Coming soon...</p>
+        <div class="content-sections">
+          <section class="carousel-section">
+            <h2 class="section-title">My Watchlist</h2>
+            <div id="watchlist" class="carousel">
+              <p class="empty-state">Your watchlist is empty. Add movies and shows to get started!</p>
+            </div>
+          </section>
+          
+          <section class="carousel-section">
+            <h2 class="section-title">Recently Watched</h2>
+            <div id="recently-watched" class="carousel">
+              <p class="empty-state">No recently watched content.</p>
+            </div>
+          </section>
+        </div>
       </div>
 
       <!-- Search Tab -->
       <div id="search-tab" class="tab">
-        <h2>Search</h2>
-        <form id="search-form" onsubmit="event.preventDefault();">
-          <input type="text" id="search-input" placeholder="Search for a movie..." autocomplete="off" />
-        </form>
-        <section class="carousel-section">
-          <h2 class="carousel-title">Search Results</h2>
-          <div id="search-results" class="carousel"></div>
-        </section>
+        <div class="search-container">
+          <h2 class="section-title">Search</h2>
+          <form id="search-form" onsubmit="event.preventDefault();">
+            <div class="search-input-container">
+              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+              <input type="text" id="search-input" placeholder="Search for movies and TV shows..." autocomplete="off" />
+            </div>
+          </form>
+        </div>
+        <div class="content-sections">
+          <section class="carousel-section">
+            <h2 class="section-title">Search Results</h2>
+            <div id="search-results" class="carousel"></div>
+          </section>
+        </div>
       </div>
 
       <!-- Settings Tab -->
       <div id="settings-tab" class="tab">
-        <h2>Settings</h2>
+        <div class="settings-section">
+          <h2 class="section-title">Settings</h2>
 
-        <!-- TMDB API Key -->
-        <form id="api-key-form" onsubmit="event.preventDefault(); saveApiKey();">
-          <label for="api-key-input">TMDB API Key:</label>
-          <input type="text" id="api-key-input" placeholder="Enter your TMDB API key" autocomplete="off" />
-          <button type="submit">Save</button>
-        </form>
-        <div id="api-key-status"></div>
+          <!-- TMDB API Key -->
+          <form id="api-key-form" onsubmit="event.preventDefault(); saveApiKey();">
+            <h3>TMDB API Configuration</h3>
+            <label for="api-key-input">TMDB API Key:</label>
+            <input type="text" id="api-key-input" placeholder="Enter your TMDB API key" autocomplete="off" />
+            <button type="submit">Save API Key</button>
+            <div id="api-key-status"></div>
+          </form>
 
-        <!-- Debrid Service -->
-        <form id="debrid-form" onsubmit="event.preventDefault(); saveDebridConfig();">
-          <label for="debrid-service">Debrid Service:</label>
-          <select id="debrid-service">
-            <option value="none">None (Magnet links only)</option>
-            <option value="realdebrid">Real-Debrid</option>
-            <option value="alldebrid">AllDebrid</option>
-            <option value="premiumize">Premiumize</option>
-          </select>
-          <label for="debrid-api-key">Debrid API Key:</label>
-          <input type="text" id="debrid-api-key" placeholder="Enter your debrid API key" autocomplete="off" />
-          <button type="submit">Save Debrid</button>
-        </form>
-        <div id="debrid-status"></div>
+          <!-- Debrid Service -->
+          <form id="debrid-form" onsubmit="event.preventDefault(); saveDebridConfig();">
+            <h3>Debrid Service Configuration</h3>
+            <label for="debrid-service">Debrid Service:</label>
+            <select id="debrid-service">
+              <option value="none">None (Magnet links only)</option>
+              <option value="realdebrid">Real-Debrid</option>
+              <option value="alldebrid">AllDebrid</option>
+              <option value="premiumize">Premiumize</option>
+            </select>
+            <label for="debrid-api-key">Debrid API Key:</label>
+            <input type="text" id="debrid-api-key" placeholder="Enter your debrid API key" autocomplete="off" />
+            <button type="submit">Save Debrid</button>
+            <div id="debrid-status"></div>
+          </form>
 
-        <!-- Preferred Player -->
-        <form id="player-form" onsubmit="event.preventDefault(); savePlayerChoice();">
-          <label for="player-select">Preferred Player:</label>
-          <select id="player-select">
-            <option value="internal">Internal Player</option>
-            <option value="infuse">Infuse</option>
-            <option value="vlc">VLC</option>
-            <option value="outplayer">Outplayer</option>
-          </select>
-          <button type="submit">Save</button>
-        </form>
-        <div id="player-status"></div>
+          <!-- Preferred Player -->
+          <form id="player-form" onsubmit="event.preventDefault(); savePlayerChoice();">
+            <h3>Player Configuration</h3>
+            <label for="player-select">Preferred Player:</label>
+            <select id="player-select">
+              <option value="internal">Internal Player</option>
+              <option value="infuse">Infuse</option>
+              <option value="vlc">VLC</option>
+              <option value="outplayer">Outplayer</option>
+              <option value="mrmc">MrMC</option>
+            </select>
+            <button type="submit">Save Player</button>
+            <div id="player-status"></div>
+          </form>
 
-        <!-- Addon Management Section -->
-        <section id="addon-management">
-          <h3>Addons & Providers</h3>
-          <button id="addon-add-btn" type="button">Add Addon</button>
-          <ul id="addon-list"></ul>
-        </section>
+          <!-- Addons -->
+          <div class="addon-section">
+            <h3>Streaming Addons</h3>
+            <div id="addon-list"></div>
+            <button onclick="openAddonModal()" class="btn-add-addon">Add Addon</button>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Movie Details Modal -->
+      <!-- Movie Details Modal -->
+      <div id="movie-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+          <span class="close" onclick="closeModal()">&times;</span>
+          <div id="modal-body"></div>
+        </div>
     <div id="movie-modal" class="modal" style="display:none;">
       <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>

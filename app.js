@@ -79,14 +79,30 @@ async function getTrailer(movieId) {
   return trailer || null;
 }
 
-// --- Tab Navigation ---
+// --- Tab Switching Logic ---
 window.showTab = function(tabId) {
-  console.log('showTab called with:', tabId);
-
-  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-  const selected = document.getElementById(tabId);
-  if (selected) {
-    selected.classList.add('active');
+  console.log('Switching to tab:', tabId);
+  
+  // Remove active class from all tabs and nav buttons
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Add active class to selected tab
+  const selectedTab = document.getElementById(tabId);
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+    
+    // Add active class to corresponding nav button
+    const navButtons = document.querySelectorAll('.nav-btn');
+    if (tabId === 'home-tab') navButtons[0]?.classList.add('active');
+    else if (tabId === 'search-tab') navButtons[1]?.classList.add('active');
+    else if (tabId === 'library-tab') navButtons[2]?.classList.add('active');
+    else if (tabId === 'settings-tab') navButtons[3]?.classList.add('active');
+    
     console.log('Tab switched to:', tabId);
 
     if(tabId === 'settings-tab') {
@@ -121,6 +137,24 @@ window.saveApiKey = function() {
   const statusDiv = document.getElementById('api-key-status');
 
   if (!input || !statusDiv) {
+    console.error('API key elements not found');
+    return;
+  }
+
+  const apiKey = input.value.trim();
+  if (!apiKey) {
+    statusDiv.textContent = 'Please enter a valid API key';
+    statusDiv.style.color = '#ff8888';
+    return;
+  }
+
+  localStorage.setItem('tmdb_api_key', apiKey);
+  statusDiv.textContent = 'API key saved successfully!';
+  statusDiv.style.color = '#88ff88';
+
+  // Try to load home catalogs if available
+  if (typeof loadHomeCatalogs === 'function') {
+    loadHomeCatalogs();
   }
 };
 
@@ -725,37 +759,29 @@ function displayMovies(movies, containerSelector) {
 
   movies.forEach(movie => {
     const movieCard = document.createElement('div');
-    movieCard.className = 'movie-card';
+    movieCard.innerHTML = renderMovieCard(movie);
+    container.appendChild(movieCard);
+  });
+}
 
-    const posterUrl = movie.poster_path 
-      ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-      : 'https://via.placeholder.com/200x300?text=No+Image';
-
-    movieCard.innerHTML = `
-      <img src="${posterUrl}" alt="${movie.title}" loading="lazy">
-      <div class="movie-info">
-        <h3>${movie.title}</h3>
-        <p class="movie-year">${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</p>
-        <p class="movie-rating">⭐ ${movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}</p>
-        <div class="movie-actions">
+function renderMovieCard(movie) {
+  const posterUrl = movie.poster_path 
+    ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` 
+    : 'https://via.placeholder.com/300x450/333/fff?text=No+Image';
+  
+  return `
+    <div class="carousel-card" onclick="showMovieDetails(${movie.id})">
+      <img src="${posterUrl}" alt="${movie.title}" loading="lazy" />
+      <div class="card-content">
+        <h4>${movie.title}</h4>
+        <p>${movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A'}</p>
+        <div class="card-actions">
           <button class="btn-play" onclick="event.stopPropagation(); handlePlayButton(${movie.id}, '${movie.title.replace(/'/g, "\\'")}')">▶️ Play</button>
           <button class="btn-trailer" onclick="event.stopPropagation(); handleTrailerButton(${movie.id}, '${movie.title.replace(/'/g, "\\'")}')">🎬 Trailer</button>
         </div>
       </div>
-    `;
-
-    // Movie card click handler (for general info/details)
-    movieCard.addEventListener('click', function(e) {
-      // Only handle click if it's not on a button
-      if (!e.target.closest('button')) {
-        console.log('Movie card clicked:', movie.title);
-        // You can add movie details modal here in the future
-        alert(`Movie Details for "${movie.title}" - Coming soon!`);
-      }
-    });
-
-    container.appendChild(movieCard);
-  });
+    </div>
+  `;
 }
 
 // --- Display TV Shows ---
