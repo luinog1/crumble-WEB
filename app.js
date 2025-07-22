@@ -644,13 +644,38 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
     console.log('Starting AllDebrid conversion for magnet link');
     
     // 1. Upload the magnet to AllDebrid
-    const uploadUrl = `https://api.alldebrid.com/v4/magnet/upload?agent=crumble&apikey=${encodeURIComponent(apiKey)}&magnet=${encodeURIComponent(magnetUrl)}`;
-    console.log('Uploading magnet to AllDebrid:', uploadUrl);
+    const uploadUrl = `https://api.alldebrid.com/v4/magnet/upload`;
+    const params = new URLSearchParams({
+      agent: 'crumble',
+      apikey: apiKey,
+      magnet: magnetUrl
+    });
     
-    const uploadResponse = await fetch(uploadUrl);
+    const fullUrl = `${uploadUrl}?${params}`;
+    console.log('Uploading magnet to AllDebrid:', fullUrl);
+    
+    // Log the request details (without the API key)
+    console.log('Request details:', {
+      method: 'GET',
+      url: uploadUrl,
+      params: {
+        agent: 'crumble',
+        apikey: '***REDACTED***',
+        magnet: magnetUrl.length > 50 ? `${magnetUrl.substring(0, 50)}...` : magnetUrl
+      }
+    });
+    
+    const uploadResponse = await fetch(fullUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
     const responseText = await uploadResponse.text();
     console.log('AllDebrid upload response status:', uploadResponse.status);
-    console.log('AllDebrid upload response:', responseText);
+    console.log('AllDebrid upload response headers:', JSON.stringify([...uploadResponse.headers.entries()]));
+    console.log('AllDebrid upload response body:', responseText);
     
     if (!uploadResponse.ok) {
       throw new Error(`Failed to upload magnet: ${uploadResponse.status} - ${responseText}`);
@@ -659,30 +684,59 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
     let uploadData;
     try {
       uploadData = JSON.parse(responseText);
+      console.log('Parsed upload data:', JSON.stringify(uploadData, null, 2));
     } catch (e) {
       console.error('Failed to parse AllDebrid response as JSON:', e);
       throw new Error(`Invalid JSON response from AllDebrid: ${responseText}`);
     }
     
-    // Check for API errors
-    if (uploadData.error) {
-      const errorMessage = uploadData.error.message || 'Unknown error';
-      const errorCode = uploadData.error.code || 'NO_CODE';
-      console.error('AllDebrid API error:', { errorCode, errorMessage, fullError: uploadData.error });
-      throw new Error(`AllDebrid API error (${errorCode}): ${errorMessage}`);
+    // Log the complete response structure for debugging
+    console.log('Complete AllDebrid response structure:', JSON.stringify({
+      keys: Object.keys(uploadData),
+      hasData: 'data' in uploadData,
+      dataKeys: uploadData.data ? Object.keys(uploadData.data) : 'no data object',
+      status: uploadData.status,
+      error: uploadData.error
+    }, null, 2));
+    
+    // Check for different response formats
+    if (uploadData.status === 'error' || uploadData.error) {
+      const errorInfo = uploadData.error || {};
+      const errorMsg = `AllDebrid API error (${errorInfo.code || 'unknown'}): ${errorInfo.message || 'Unknown error'}`;
+      console.error('AllDebrid API error:', { 
+        status: uploadData.status,
+        error: errorInfo,
+        fullResponse: uploadData 
+      });
+      throw new Error(errorMsg);
     }
     
+    // Handle different response formats
     if (!uploadData.data) {
-      console.error('Unexpected AllDebrid response format:', uploadData);
-      throw new Error('Invalid response format from AllDebrid: Missing data object');
+      // Some AllDebrid endpoints return data directly
+      if (uploadData.id) {
+        console.log('Using direct response as data');
+        uploadData.data = { ...uploadData };
+      } else {
+        console.error('Unexpected AllDebrid response format:', uploadData);
+        throw new Error('Invalid response format from AllDebrid: Missing data object');
+      }
     }
     
+    // Check for magnet ID in various possible locations
+    const magnetId = uploadData.data.id || 
+                   (uploadData.data.magnets && uploadData.data.magnets[0]?.id) ||
+                   uploadData.id;
+    
+    if (!magnetId) {
+      console.error('Could not find magnet ID in response:', uploadData);
+      throw new Error('Could not determine magnet ID from AllDebrid response');
+    }
+    
+    // Ensure the data structure is consistent with the magnet ID
     if (!uploadData.data.id) {
-      console.error('AllDebrid response missing magnet ID:', uploadData);
-      throw new Error('Invalid response from AllDebrid: Missing magnet ID in data object');
+      uploadData.data.id = magnetId;
     }
-    
-    const magnetId = uploadData.data.id;
     console.log('Magnet uploaded successfully, ID:', magnetId);
     
     // 2. Check magnet status until it's ready
