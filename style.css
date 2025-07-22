@@ -44,9 +44,10 @@ body {
 .carousel {
   display: flex;
   overflow-x: auto;
-  gap: 0.8em;
-  padding: 0.5em 1em 1em 1em;
+  gap: 0.6em;
+  padding: 0.5em 0.5em 1em 0.5em;
   scrollbar-width: none;
+  margin: 0 0.2em;
 }
 .carousel::-webkit-scrollbar {
   display: none;
@@ -84,18 +85,23 @@ body {
 .carousel-card h4,
 .card h3 {
   margin: 0;
-  font-size: 1em;
+  font-size: 0.75em;
   text-align: center;
   font-weight: 400;
   color: #fff;
-  margin-bottom: 0.3em;
+  margin-bottom: 0.2em;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .carousel-card p,
 .card p {
   margin: 0;
-  font-size: 0.85em;
+  font-size: 0.7em;
   color: #aaa;
   text-align: center;
+  line-height: 1.1;
 }
 
 /* Search Input */

@@ -381,26 +381,49 @@ function filterStreams() {
 function selectStream(streamIndex) {
   const streams = window.currentStreams || [];
   const selectedStream = streams[streamIndex];
-
+  
   if (!selectedStream) {
     console.error('Stream not found at index:', streamIndex);
     return;
   }
-
+  
   console.log('Selected stream:', selectedStream);
-
+  
   // Close modal
   closeStreamModal();
-
-  // Launch the stream
+  
+  // Try to extract stream URL from different possible formats
+  let streamUrl = null;
+  
   if (selectedStream.url) {
-    launchPlayer(selectedStream.url);
+    // Direct URL (HTTP/HTTPS stream)
+    streamUrl = selectedStream.url;
   } else if (selectedStream.infoHash) {
-    // Handle magnet links or torrent hashes
-    const magnetUrl = `magnet:?xt=urn:btih:${selectedStream.infoHash}`;
-    launchPlayer(magnetUrl);
+    // Torrent info hash - create magnet link
+    streamUrl = `magnet:?xt=urn:btih:${selectedStream.infoHash}`;
+    if (selectedStream.title) {
+      streamUrl += `&dn=${encodeURIComponent(selectedStream.title)}`;
+    }
+  } else if (selectedStream.magnetUrl) {
+    // Direct magnet URL
+    streamUrl = selectedStream.magnetUrl;
+  } else if (selectedStream.torrentUrl) {
+    // Torrent file URL
+    streamUrl = selectedStream.torrentUrl;
   } else {
-    alert('Stream URL not available');
+    // Try to extract from title if it contains a magnet link
+    const magnetMatch = selectedStream.title && selectedStream.title.match(/magnet:\?[^\s]+/);
+    if (magnetMatch) {
+      streamUrl = magnetMatch[0];
+    }
+  }
+  
+  if (streamUrl) {
+    console.log('Launching stream URL:', streamUrl);
+    launchPlayer(streamUrl);
+  } else {
+    console.error('No valid stream URL found in:', selectedStream);
+    alert('Stream URL not available. This might be a torrent that requires additional processing.');
   }
 }
 
