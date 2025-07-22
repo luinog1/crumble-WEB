@@ -55,11 +55,11 @@ body {
 /* Card Style */
 .carousel-card,
 .card {
-  min-width: 120px;
-  max-width: 120px;
+  min-width: 100px;
+  max-width: 100px;
   background: #23232b;
-  border-radius: 10px;
-  padding: 0.3em 0.3em 0.7em 0.3em;
+  border-radius: 8px;
+  padding: 0.2em 0.2em 0.5em 0.2em;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -74,11 +74,11 @@ body {
 }
 .carousel-card img,
 .card img {
-  width: 100px;
-  height: 150px;
+  width: 80px;
+  height: 120px;
   object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 0.5em;
+  border-radius: 6px;
+  margin-bottom: 0.4em;
   background: #444;
 }
 .carousel-card h4,
