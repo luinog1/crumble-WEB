@@ -284,11 +284,20 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       baseUrl += '/';
     }
 
-    // Check if the ID is supported by the addon
-    if (resource === 'stream' && addon.idPrefixes && addon.idPrefixes.length > 0) {
-      const idPrefix = id.split(':')[0] || id.substring(0, 2);
-      if (!addon.idPrefixes.includes(idPrefix)) {
-        throw new Error(`Unsupported ID format for ${addon.name}. Expected one of: ${addon.idPrefixes.join(', ')}`);
+    // Format ID for Torrentio or other addons that require specific ID formats
+    let formattedId = id;
+    if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
+      // If it's already a valid IMDb ID, use it as is
+      if (id.startsWith('tt')) {
+        formattedId = id;
+      } else {
+        // If it's a numeric ID, convert to IMDb format
+        const numericId = id.toString().replace(/\D/g, '');
+        if (numericId) {
+          formattedId = `tt${numericId.padStart(7, '0')}`;
+        } else {
+          throw new Error('Invalid ID format for Torrentio - requires IMDb ID');
+        }
       }
     }
 
@@ -304,34 +313,26 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
         .replace('{baseUrl}', baseUrl)
         .replace('{resource}', resource)
         .replace('{type}', type || '')
-        .replace('{id}', id || '')
+        .replace('{id}', formattedId || '')
         .replace('/manifest.json', '');
     } else {
       // Build URL based on addon type and resource
       url = `${baseUrl}${resource}`;
 
-      // Special handling for stream URLs
       if (resource === 'stream') {
         // Special case for Torrentio
         if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
-          // Ensure proper ID format for Torrentio (should be IMDb ID)
-          if (!id.startsWith('tt')) {
-            throw new Error('Invalid ID format for Torrentio - requires IMDb ID');
-          }
-          url = `${baseUrl}stream/${type}/${id}.json`;
+          url = `${baseUrl}stream/${type}/${formattedId}.json`;
           console.log('Built Torrentio URL:', url);
         }
         // Handle other streaming addons
         else if (addon.type === 'torrent' || addon.config?.streaming?.type === 'torrent') {
-          url = `${baseUrl}${type}/${id}/stream`;
-        } else if (addon.streaming?.urlPattern) {
-          url = addon.streaming.urlPattern
-            .replace('{type}', type)
-            .replace('{id}', id)
-            .replace('/manifest.json', '');
+          url = `${baseUrl}${type}/${formattedId}/stream`;
+        } else {
+          url = `${baseUrl}${resource}/${type}/${formattedId}`;
         }
-      } else if (type && id) {
-        url += `/${type}/${id}`;
+      } else if (type && formattedId) {
+        url += `/${type}/${formattedId}`;
       }
     }
 

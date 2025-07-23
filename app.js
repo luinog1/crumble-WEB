@@ -405,6 +405,11 @@ window.removeAddon = removeAddon;
 async function handlePlayButton(movieId, movieTitle) {
   console.log('=== Stream Request Started ===');
   console.log('Input:', { movieId, movieTitle });
+
+  // Ensure movieId is a string and remove any non-alphanumeric characters
+  const cleanMovieId = movieId.toString().trim();
+  console.log('Cleaned movie ID:', cleanMovieId);
+
   try {
     // Get all addons that have stream capability
     const allAddons = getAddons();
@@ -455,7 +460,7 @@ async function handlePlayButton(movieId, movieTitle) {
           return id;
         }
         // If it's a numeric ID, convert to IMDb format
-        const numericId = id.toString().replace(/\D/g, ''); // Remove any non-digits
+        const numericId = id.toString().replace(/\D/g, '');
         if (numericId) {
           const formattedId = `tt${numericId.padStart(7, '0')}`;
           console.log('Converted to IMDb ID:', { original: id, formatted: formattedId });
@@ -505,10 +510,10 @@ async function handlePlayButton(movieId, movieTitle) {
       console.log(`\n=== Processing Addon: ${addon.name} ===`);
       try {
         // Format the ID appropriately for this addon
-        const formattedId = formatMovieId(addon, movieId.toString());
+        const formattedId = formatMovieId(addon, cleanMovieId);
         console.log('ID Formatting:', { 
           addon: addon.name,
-          original: movieId,
+          original: cleanMovieId,
           formatted: formattedId,
           idPrefixes: addon.idPrefixes
         });
