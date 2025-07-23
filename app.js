@@ -20,6 +20,7 @@ window.showMovieDetails = null;
 window.selectStream = null;
 window.filterStreams = null;
 window.closeStreamModal = null;
+import { callMultipleAddons } from './AddonLoader.js';
 
 // === TMDB API FUNCTIONS ===
 const BASE_URL = "https://api.themoviedb.org/3";
@@ -424,15 +425,32 @@ function removeAddon(idx) {
 }
 
 // === MEDIA FUNCTIONS ===
-function handlePlayButton(movieId, movieTitle) {
+async function handlePlayButton(movieId, movieTitle) {
   console.log('handlePlayButton called:', { movieId, movieTitle });
-  
   try {
-    // For now, show a placeholder message
-    alert(`Play functionality for "${movieTitle}" is being implemented. Please add streaming addons in Settings to enable playback.`);
+    const addons = getAddons().filter(a => a.resources && a.resources.includes('stream'));
+    if (addons.length === 0) {
+      alert('No streaming addons configured. Please add at least one streaming addon in Settings.');
+      return;
+    }
+    // Show loading modal
+    showStreamModal('Loading streams...', []);
+    // Fetch streams from all addons
+    const { results } = await callMultipleAddons(addons, { type: 'movie', id: movieId });
+    let streams = [];
+    results.forEach(r => {
+      if (r.data && Array.isArray(r.data.streams)) {
+        streams = streams.concat(r.data.streams.map(s => ({ ...s, addon: r.addon })));
+      }
+    });
+    if (streams.length === 0) {
+      showStreamModal('No streams found for this movie.', []);
+      return;
+    }
+    showStreamModal(`${streams.length} streams found for "${movieTitle}"`, streams);
   } catch (error) {
-    console.error('Error in handlePlayButton:', error);
-    alert(`Error: ${error.message}`);
+    console.error('Error loading streams:', error);
+    showStreamModal('Error loading streams: ' + error.message, []);
   }
 }
 
@@ -496,22 +514,66 @@ function closeAddonMetaModal() {
 }
 
 // === STREAM FUNCTIONS (PLACEHOLDERS) ===
-function selectStream(index) {
-  console.log('selectStream called with index:', index);
-  alert('Stream selection functionality coming soon!');
-}
-
 function filterStreams() {
   console.log('filterStreams called');
   // Placeholder
 }
 
-function closeStreamModal() {
-  console.log('closeStreamModal called');
-  const modal = document.getElementById('stream-modal');
-  if (modal) {
-    modal.remove();
+function showStreamModal(title, streams) {
+  let modal = document.getElementById('stream-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'stream-modal';
+    modal.className = 'modal';
+    modal.innerHTML = `<div class="modal-content stream-modal-content">
+      <span class="close" onclick="closeStreamModal()">&times;</span>
+      <h3 id="stream-modal-title"></h3>
+      <div id="stream-list"></div>
+    </div>`;
+    document.body.appendChild(modal);
   }
+  document.getElementById('stream-modal-title').textContent = title;
+  const list = document.getElementById('stream-list');
+  if (!streams || streams.length === 0) {
+    list.innerHTML = '<p class="empty-state">No streams available.</p>';
+  } else {
+    list.innerHTML = streams.map((s, i) =>
+      `<div class="stream-item">
+        <div class="stream-info">
+          <div class="stream-title">${escapeHtml(s.title || s.name || 'Stream')}</div>
+          <div class="stream-details">
+            ${s.quality ? `<span>${escapeHtml(s.quality)}</span>` : ''}
+            ${s.size ? `<span>${escapeHtml(s.size)}</span>` : ''}
+            ${s.addon ? `<span>via ${escapeHtml(s.addon)}</span>` : ''}
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="selectStream(${i})">Play</button>
+      </div>`
+    ).join('');
+  }
+  modal.style.display = 'block';
+  window._currentStreams = streams;
+}
+
+function closeStreamModal() {
+  const modal = document.getElementById('stream-modal');
+  if (modal) modal.style.display = 'none';
+  window._currentStreams = null;
+}
+
+function selectStream(index) {
+  const streams = window._currentStreams;
+  if (!streams || !streams[index]) return;
+  const stream = streams[index];
+  // For demo: open magnet/HTTP link in new tab
+  if (stream.url) {
+    window.open(stream.url, '_blank');
+  } else if (stream.magnet) {
+    window.open(stream.magnet, '_blank');
+  } else {
+    alert('No playable URL for this stream.');
+  }
+  closeStreamModal();
 }
 
 // === UTILITY FUNCTIONS ===
