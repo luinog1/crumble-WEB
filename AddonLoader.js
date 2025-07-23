@@ -132,32 +132,62 @@ function validateAddon(addon) {
     return errors;
   }
 
-  if (!addon.id) {
-    errors.push('Missing addon ID');
-  }
+  // Required fields
+  if (!addon.id) errors.push('Missing addon ID');
+  if (!addon.name) errors.push('Missing addon name');
+  if (!addon.url) errors.push('Missing addon URL');
 
-  if (!addon.name) {
-    errors.push('Missing addon name');
-  }
-
-  if (!addon.url) {
-    errors.push('Missing addon URL');
-  } else {
+  // URL validation
+  if (addon.url) {
     try {
       new URL(addon.url);
+      if (!addon.url.endsWith('/manifest.json')) {
+        errors.push('Addon URL must end with /manifest.json');
+      }
     } catch (e) {
       errors.push('Invalid addon URL format');
     }
   }
 
-  if (!addon.type) {
-    errors.push('Missing addon type');
-  } else if (!['scraper', 'catalog', 'debrid', 'torrent', 'meta', 'subtitles', 'other'].includes(addon.type)) {
-    errors.push('Invalid addon type');
+  // Resources validation
+  if (addon.resources) {
+    if (!Array.isArray(addon.resources)) {
+      errors.push('Resources must be an array');
+    } else {
+      const validResources = ['stream', 'catalog', 'meta', 'subtitles', 'other'];
+      addon.resources.forEach(resource => {
+        if (!validResources.includes(resource)) {
+          errors.push(`Invalid resource type: ${resource}`);
+        }
+      });
+    }
   }
 
-  if (addon.resources && !Array.isArray(addon.resources)) {
-    errors.push('Resources must be an array');
+  // Types validation
+  if (addon.types) {
+    if (!Array.isArray(addon.types)) {
+      errors.push('Types must be an array');
+    } else {
+      const validTypes = ['movie', 'series', 'anime', 'channel', 'tv', 'other'];
+      addon.types.forEach(type => {
+        if (!validTypes.includes(type)) {
+          errors.push(`Invalid content type: ${type}`);
+        }
+      });
+    }
+  }
+
+  // Endpoints validation
+  if (addon.endpoints) {
+    Object.entries(addon.endpoints).forEach(([key, value]) => {
+      if (value && typeof value === 'string') {
+        try {
+          new URL(value);
+        } catch (e) {
+          errors.push(`Invalid endpoint URL for ${key}`);
+        }
+      }
+    });
   }
 
   return errors;
@@ -237,17 +267,21 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       throw new Error('Invalid addon configuration');
     }
 
-    // Remove manifest.json from the base URL if present
-    let baseUrl = addon.url.replace('/manifest.json', '');
-    if (!baseUrl.endsWith('/')) {
-      baseUrl += '/';
+    // Get the appropriate base URL
+    let baseUrl;
+    
+    // Check for resource-specific endpoint
+    if (addon.endpoints?.[resource]) {
+      baseUrl = addon.endpoints[resource].replace('/manifest.json', '');
+    } else if (addon.config?.[resource]?.endpoint) {
+      baseUrl = addon.config[resource].endpoint.replace('/manifest.json', '');
+    } else {
+      baseUrl = addon.url.replace('/manifest.json', '');
     }
 
-    // Handle special cases for streaming addons
-    if (resource === 'stream' && addon.streaming?.endpoint) {
-      baseUrl = addon.streaming.endpoint.replace('/manifest.json', '');
-    } else if (resource === 'stream' && addon.stream?.endpoint) {
-      baseUrl = addon.stream.endpoint.replace('/manifest.json', '');
+    // Ensure trailing slash
+    if (!baseUrl.endsWith('/')) {
+      baseUrl += '/';
     }
 
     // Check if the ID is supported by the addon
@@ -258,27 +292,40 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       }
     }
 
-    let url = `${baseUrl}${resource}`;
+    let url;
 
-    // Special handling for stream URLs
-    if (resource === 'stream') {
-      // Special case for Torrentio
-      if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
-        // Ensure proper ID format for Torrentio (should be IMDb ID)
-        const torrentioId = id.startsWith('tt') ? id : `tt${id}`;
-        url = `${baseUrl}stream/${type}/${torrentioId}.json`;
+    // Get resource-specific URL pattern
+    const urlPattern = addon.config?.[resource]?.urlPattern || 
+                      addon.endpoints?.[`${resource}Pattern`];
+
+    if (urlPattern) {
+      // Use custom URL pattern
+      url = urlPattern
+        .replace('{baseUrl}', baseUrl)
+        .replace('{resource}', resource)
+        .replace('{type}', type || '')
+        .replace('{id}', id || '')
+        .replace('/manifest.json', '');
+    } else {
+      // Build URL based on addon type and resource
+      url = `${baseUrl}${resource}`;
+
+      if (resource === 'stream') {
+        // Special case for Torrentio
+        if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
+          // Ensure proper ID format for Torrentio (should be IMDb ID)
+          const torrentioId = id.startsWith('tt') ? id : `tt${id}`;
+          url = `${baseUrl}stream/${type}/${torrentioId}.json`;
+        }
+        // Handle other streaming addons
+        else if (addon.type === 'torrent' || addon.config?.streaming?.type === 'torrent') {
+          url = `${baseUrl}${type}/${id}/stream`;
+        } else if (type && id) {
+          url = `${baseUrl}${resource}/${type}/${id}`;
+        }
+      } else if (type && id) {
+        url += `/${type}/${id}`;
       }
-      // Handle other streaming addons
-      else if (addon.type === 'torrent' || addon.streaming?.type === 'torrent') {
-        url = `${baseUrl}${type}/${id}/stream`;
-      } else if (addon.streaming?.urlPattern) {
-        url = addon.streaming.urlPattern
-          .replace('{type}', type)
-          .replace('{id}', id)
-          .replace('/manifest.json', '');
-      }
-    } else if (type && id) {
-      url += `/${type}/${id}`;
     }
 
     // Add extra parameters
@@ -291,18 +338,30 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       url += `:${extraParams}`;
     }
 
-    // Add .json extension if not present
-    if (!url.endsWith('.json')) {
+    // Add .json extension if not present and not using custom pattern
+    if (!url.match(/\.[a-z]+$/i) && !urlPattern) {
       url += '.json';
     }
 
     // Add API key if present
-    if (addon.apiKey && addon.type !== 'debrid') {
-      url += `${url.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(addon.apiKey)}`;
+    if (addon.apiKey) {
+      const separator = url.includes('?') ? '&' : '?';
+      if (addon.type === 'debrid' || addon.config?.auth?.type === 'bearer') {
+        // Use Authorization header for these types
+        return {
+          url,
+          headers: {
+            'Authorization': `Bearer ${addon.apiKey}`
+          }
+        };
+      } else {
+        // Add as query parameter
+        url += `${separator}api_key=${encodeURIComponent(addon.apiKey)}`;
+      }
     }
 
     console.log(`Built URL for ${addon.name}:`, url);
-    return url;
+    return typeof url === 'string' ? url : { url: url.url, headers: url.headers };
 
   } catch (error) {
     throw new Error(`Failed to build addon URL: ${error.message}`);

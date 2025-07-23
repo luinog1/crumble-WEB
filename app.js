@@ -203,40 +203,96 @@ async function saveAddon() {
 
       // Normalize resources array
       let resources = [];
-      if (manifest.resources && Array.isArray(manifest.resources)) {
-        resources = manifest.resources.map(r => {
-          // Handle Torrentio-style resource objects
-          if (typeof r === 'object' && r.name) {
-            return r.name;
-          }
-          return r;
-        });
-      } else if (manifest.resources && typeof manifest.resources === 'object') {
-        // Some addons use object format for resources
-        resources = Object.keys(manifest.resources);
+      if (manifest.resources) {
+        if (Array.isArray(manifest.resources)) {
+          resources = manifest.resources.map(r => {
+            // Handle object-style resources (like Torrentio)
+            if (typeof r === 'object') {
+              return r.name || r.type || r.id || r;
+            }
+            return r;
+          });
+        } else if (typeof manifest.resources === 'object') {
+          // Handle object format resources
+          resources = Object.keys(manifest.resources);
+        }
       }
       
       // Normalize types array
-      let types = [];
-      if (manifest.types && Array.isArray(manifest.types)) {
-        types = manifest.types;
-      } else if (manifest.types && typeof manifest.types === 'object') {
-        types = Object.keys(manifest.types);
-      }
-
-      // Get supported types from resources if available
-      const resourceTypes = manifest.resources?.find(r => r.name === 'stream')?.types || [];
-      if (resourceTypes.length > 0) {
-        types = [...new Set([...types, ...resourceTypes])];
-      }
-
-      // Force stream resource if manifest indicates streaming capability
-      if (manifest.stream || manifest.streaming || manifest.torrent || 
-          types.includes('movie') || types.includes('series') || types.includes('anime')) {
-        if (!resources.includes('stream')) {
-          resources.push('stream');
+      let types = new Set();
+      
+      // Add types from manifest.types
+      if (manifest.types) {
+        if (Array.isArray(manifest.types)) {
+          manifest.types.forEach(t => types.add(t));
+        } else if (typeof manifest.types === 'object') {
+          Object.keys(manifest.types).forEach(t => types.add(t));
         }
       }
+
+      // Add types from resources
+      if (Array.isArray(manifest.resources)) {
+        manifest.resources.forEach(r => {
+          if (r.types && Array.isArray(r.types)) {
+            r.types.forEach(t => types.add(t));
+          }
+        });
+      }
+
+      // Add types from catalogs
+      if (Array.isArray(manifest.catalogs)) {
+        manifest.catalogs.forEach(c => {
+          if (c.type) types.add(c.type);
+        });
+      }
+
+      // Convert Set back to array
+      types = Array.from(types);
+
+      // Collect all supported ID prefixes
+      let idPrefixes = new Set();
+      if (Array.isArray(manifest.resources)) {
+        manifest.resources.forEach(r => {
+          if (r.idPrefixes && Array.isArray(r.idPrefixes)) {
+            r.idPrefixes.forEach(p => idPrefixes.add(p));
+          }
+        });
+      }
+      
+      // Determine streaming capabilities
+      const hasStreamingCapability = 
+        manifest.stream || 
+        manifest.streaming || 
+        manifest.torrent ||
+        types.includes('movie') || 
+        types.includes('series') ||
+        types.includes('anime') ||
+        resources.includes('stream') ||
+        (manifest.catalogs && manifest.catalogs.some(cat => 
+          cat.type === 'movie' || cat.type === 'series' || cat.type === 'anime'
+        ));
+
+      // Force stream resource if streaming capable
+      if (hasStreamingCapability && !resources.includes('stream')) {
+        resources.push('stream');
+      }
+
+      // Collect all endpoints
+      const endpoints = {
+        stream: manifest.stream?.endpoint || manifest.streaming?.endpoint,
+        catalog: manifest.catalog?.endpoint,
+        meta: manifest.meta?.endpoint,
+        subtitle: manifest.subtitle?.endpoint || manifest.subtitles?.endpoint,
+        ...Object.fromEntries(
+          Object.entries(manifest)
+            .filter(([key, value]) => 
+              typeof value === 'object' && 
+              value !== null && 
+              'endpoint' in value
+            )
+            .map(([key, value]) => [key, value.endpoint])
+        )
+      };
       
       const addonInfo = {
         id: manifest.id,
@@ -250,7 +306,13 @@ async function saveAddon() {
         catalogs: manifest.catalogs || [],
         type: determineAddonType(resources, types),
         behaviorHints: manifest.behaviorHints || {},
-        idPrefixes: manifest.resources?.find(r => r.name === 'stream')?.idPrefixes || [],
+        idPrefixes: Array.from(idPrefixes),
+        endpoints: endpoints,
+        config: {
+          stream: manifest.stream || null,
+          streaming: manifest.streaming || null,
+          torrent: manifest.torrent || null
+        },
         dateAdded: new Date().toISOString()
       };
 
