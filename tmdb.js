@@ -75,7 +75,7 @@ async function getTrailer(movieId) {
   }
 }
 
-// Export all functions to window for use in app.js
+// Export all functions to window
 window.getApiKey = getApiKey;
 window.makeSecureTMDBRequest = makeSecureTMDBRequest;
 window.getPopularMovies = getPopularMovies;

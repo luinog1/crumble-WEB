@@ -279,7 +279,7 @@ async function callMultipleAddons(addons, params = {}) {
   };
 }
 
-// Export for use in app.js
+// Export all functions to window
 window.callAddon = callAddon;
 window.validateAddon = validateAddon;
 window.testAddon = testAddon;
