@@ -149,17 +149,21 @@ async function saveAddon() {
   try {
     const urlInput = document.getElementById('addon-url');
     const submitBtn = document.querySelector('#addon-form button[type="button"]');
+    
     if (!urlInput) {
       console.error('Addon URL input not found');
       showAddonStatus('Addon URL input not found', 'error');
       return;
     }
+
     if (!urlInput.value.trim()) {
       showAddonStatus('Please enter a valid addon URL', 'error');
       return;
     }
+    
     let addonUrl = urlInput.value.trim();
     console.log('Processing addon URL:', addonUrl);
+    
     // Ensure URL ends with manifest.json
     if (!addonUrl.endsWith('/manifest.json')) {
       if (addonUrl.endsWith('/')) {
@@ -168,26 +172,33 @@ async function saveAddon() {
         addonUrl += '/manifest.json';
       }
     }
+    
     // Show loading state
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Fetching...';
     }
     showAddonStatus('Fetching addon manifest...', 'loading');
+    
     try {
       console.log('Fetching manifest from:', addonUrl);
+      
       const response = await fetch(addonUrl, {
         headers: { 'Accept': 'application/json' },
         method: 'GET'
       });
+      
       if (!response.ok) {
         throw new Error(`Failed to fetch manifest: ${response.status} ${response.statusText}`);
       }
+      
       const manifest = await response.json();
       console.log('Received manifest:', manifest);
+      
       if (!manifest.id || !manifest.name) {
         throw new Error('Invalid manifest format - missing required fields (id, name)');
       }
+      
       const addonInfo = {
         id: manifest.id,
         name: manifest.name,
@@ -201,8 +212,12 @@ async function saveAddon() {
         type: determineAddonType(manifest.resources || []),
         dateAdded: new Date().toISOString()
       };
+
+      console.log('Processed addon info:', addonInfo);
+      
       const existingAddons = getAddons();
       const existingIndex = existingAddons.findIndex(addon => addon.id === addonInfo.id);
+      
       if (existingIndex >= 0) {
         existingAddons[existingIndex] = addonInfo;
         showAddonStatus(`Updated addon: ${addonInfo.name}`, 'success');
@@ -210,13 +225,17 @@ async function saveAddon() {
         existingAddons.push(addonInfo);
         showAddonStatus(`Added addon: ${addonInfo.name}`, 'success');
       }
+      
       setAddons(existingAddons);
       renderAddonList();
+      
       console.log('Addon saved successfully:', addonInfo.name);
+      
       setTimeout(() => {
         urlInput.value = '';
         closeAddonModal();
       }, 1500);
+      
     } catch (fetchError) {
       console.error('Error fetching addon manifest:', fetchError);
       showAddonStatus(`Error: ${fetchError.message}`, 'error');
@@ -287,15 +306,23 @@ async function handlePlayButton(movieId, movieTitle) {
     const allAddons = getAddons();
     console.log('All addons:', allAddons);
     
+    if (!allAddons || allAddons.length === 0) {
+      console.error('No addons found in storage');
+      alert('No addons configured. Please add at least one streaming addon in Settings.');
+      return;
+    }
+    
     const streamingAddons = allAddons.filter(addon => {
-      const hasStream = addon.resources && addon.resources.includes('stream');
-      console.log(`Addon ${addon.name}: has stream = ${hasStream}`, addon);
+      console.log('Checking addon:', addon);
+      const hasStream = addon.resources && Array.isArray(addon.resources) && addon.resources.includes('stream');
+      console.log(`Addon ${addon.name}: has stream = ${hasStream}, resources =`, addon.resources);
       return hasStream;
     });
     
-    console.log('Streaming addons:', streamingAddons);
+    console.log('Filtered streaming addons:', streamingAddons);
 
     if (!streamingAddons || streamingAddons.length === 0) {
+      console.error('No streaming addons found');
       alert('No streaming addons configured. Please add at least one streaming addon in Settings.');
       return;
     }
@@ -315,6 +342,8 @@ async function handlePlayButton(movieId, movieTitle) {
         streams = streams.concat(r.data.streams.map(s => ({ ...s, addon: r.addon })));
       }
     });
+
+    console.log('Processed streams:', streams);
 
     if (streams.length === 0) {
       showStreamModal('No streams found for this movie.', []);
@@ -550,14 +579,18 @@ function escapeHtml(text) {
 
 function getAddons() {
   try {
-    return JSON.parse(localStorage.getItem('addons')) || [];
-  } catch {
+    const addons = JSON.parse(localStorage.getItem('addons')) || [];
+    console.log('Loaded addons from storage:', addons);
+    return addons;
+  } catch (error) {
+    console.error('Error loading addons:', error);
     return [];
   }
 }
 
 function setAddons(addons) {
   try {
+    console.log('Saving addons to storage:', addons);
     localStorage.setItem('addons', JSON.stringify(addons));
   } catch (error) {
     console.error('Error saving addons:', error);
