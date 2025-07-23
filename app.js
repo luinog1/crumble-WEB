@@ -359,12 +359,23 @@ async function handlePlayButton(movieId, movieTitle) {
     
     const streamPromises = streamingAddons.map(async (addon) => {
       try {
-        const url = buildAddonUrl(addon, 'stream', 'movie', movieId.toString());
-        console.log(`Calling addon ${addon.name} at URL:`, url);
-        const result = await callAddon(addon, { 
-          type: 'movie', 
-          id: movieId.toString() 
+        // Construct the URL for stream request
+        const streamUrl = buildAddonUrl(addon, 'stream', 'movie', movieId.toString());
+        console.log(`Calling addon ${addon.name} at URL:`, streamUrl);
+        
+        // Make the request using the constructed URL directly
+        const response = await fetch(streamUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Crumble/1.0'
+          }
         });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
         console.log(`Results from ${addon.name}:`, result);
         return { success: true, data: result, addon: addon.name };
       } catch (error) {
