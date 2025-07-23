@@ -749,47 +749,64 @@ async function convertViaAllDebrid(magnetUrl, apiKey) {
     console.log('Magnet uploaded successfully, ID:', magnetId);
     
     // 2. Check magnet status until it's ready
-    const maxAttempts = 30; // 30 attempts with 2s delay = 1 minute max wait
+    const maxAttempts = 30;
+    const checkInterval = 2000; // 2 seconds
     let attempts = 0;
-    let statusData;
     
-    while (attempts < maxAttempts) {
+    const checkStatus = async () => {
       attempts++;
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between checks
+      console.log(`Checking magnet status (attempt ${attempts}/${maxAttempts})...`);
       
-      const statusUrl = `https://api.alldebrid.com/v4/magnet/status?agent=crumble&apikey=${encodeURIComponent(apiKey)}&id=${magnetId}`;
-      console.log(`Checking status (attempt ${attempts}/${maxAttempts}):`, statusUrl);
+      const statusUrl = `https://api.alldebrid.com/v4/magnet/status`;
+      const params = new URLSearchParams({
+        agent: 'crumble',
+        apikey: apiKey,
+        id: magnetId
+      });
+      
+      const fullUrl = `${statusUrl}?${params}`;
+      console.log('Status check URL:', fullUrl);
       
       let statusResponse;
-      let statusResponseText;
+      let statusText;
+      let statusData;
       
       try {
-        statusResponse = await fetch(statusUrl);
-        statusResponseText = await statusResponse.text();
-        console.log('Status response status:', statusResponse.status);
-        console.log('Status response:', statusResponseText);
+        // Make the API request
+        statusResponse = await fetch(fullUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         
+        // Get the raw response text
+        statusText = await statusResponse.text();
+        
+        // Check for HTTP errors
         if (!statusResponse.ok) {
-          throw new Error(`HTTP ${statusResponse.status}: ${statusResponseText}`);
+          throw new Error(`HTTP ${statusResponse.status}: ${statusText}`);
         }
         
-        statusData = JSON.parse(statusResponseText);
-        
-        // Check for API errors
-        if (statusData.error) {
-          const errorCode = statusData.error.code || 'NO_CODE';
-          const errorMessage = statusData.error.message || 'Unknown error';
-          console.error('AllDebrid status API error:', { 
-            errorCode, 
-            errorMessage, 
-            fullError: statusData.error 
-          });
-          throw new Error(`AllDebrid API error (${errorCode}): ${errorMessage}`);
+        // Parse the JSON response
+        try {
+          statusData = JSON.parse(statusText);
+          console.log('Status check response:', JSON.stringify(statusData, null, 2));
+        } catch (e) {
+          console.error('Failed to parse status response as JSON:', e);
+          throw new Error(`Invalid JSON response from AllDebrid: ${statusText}`);
         }
         
-        if (!statusData.data || !statusData.data.magnets || !Array.isArray(statusData.data.magnets)) {
-          console.error('Unexpected status response format:', statusData);
-          throw new Error('Invalid status response format from AllDebrid');
+        // Check for API-level errors
+        if (statusData.status === 'error' || statusData.error) {
+          const errorInfo = statusData.error || {};
+          throw new Error(`AllDebrid error (${errorInfo.code || 'unknown'}): ${errorInfo.message || 'Unknown error'}`);
+        }
+        
+        // Handle different response formats
+        if (!statusData.data) {
+          console.error('Unexpected status response format (missing data):', statusData);
+          throw new Error('Invalid response format from AllDebrid: Missing data object');
         }
         
         const magnetInfo = statusData.data.magnets[0];
