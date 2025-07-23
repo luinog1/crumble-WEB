@@ -641,9 +641,7 @@ function displayMovies(movies, containerSelector) {
   }
 
   movies.forEach(movie => {
-    const movieCard = document.createElement('div');
-    movieCard.innerHTML = renderMovieCard(movie);
-    container.appendChild(movieCard);
+    container.insertAdjacentHTML('beforeend', renderMovieCard(movie));
   });
 }
 
@@ -1028,59 +1026,6 @@ class SearchManager {
 
 // === ASSIGN FUNCTIONS TO GLOBAL SCOPE IMMEDIATELY ===
 console.log('Assigning functions to global scope...');
-
-// Assign all functions to window object
-window.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM fully loaded, initializing button handlers...');
-  
-  // Initialize tab manager
-  window.tabManager = new TabManager();
-  
-  // Initialize search manager
-  window.searchManager = new SearchManager();
-  window.searchManager.setupSearch();
-  
-  // Setup addon button
-  const addAddonBtn = document.getElementById('add-addon-btn');
-  if (addAddonBtn) {
-    addAddonBtn.addEventListener('click', showAddonModal);
-  }
-  
-  // Setup form submissions
-  const apiKeyForm = document.getElementById('api-key-form');
-  if (apiKeyForm) {
-    apiKeyForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      saveApiKey();
-    });
-  }
-  
-  const playerForm = document.getElementById('player-form');
-  if (playerForm) {
-    playerForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      savePlayerChoice();
-    });
-  }
-  
-  const debridForm = document.getElementById('debrid-form');
-  if (debridForm) {
-    debridForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      saveDebridConfig();
-    });
-  }
-  
-  // Setup modal close buttons
-  document.querySelectorAll('.close').forEach(closeBtn => {
-    closeBtn.addEventListener('click', closeModal);
-  });
-  
-  // Initial content load
-  loadHomeCatalogs().catch(console.error);
-  
-  console.log('Button handlers initialized');
-});
 
 // Assign all functions to window object
 window.saveApiKey = saveApiKey;
