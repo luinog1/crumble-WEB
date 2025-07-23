@@ -16,17 +16,15 @@ async function callAddon(addon, params = {}) {
     // If API key is needed, add it securely
     if (addon.apiKey) {
       if (addon.type === "debrid") {
-        // Use Authorization header for debrid services (more secure)
         headers["Authorization"] = `Bearer ${addon.apiKey}`;
       } else {
-        // For other services, add as query parameter (legacy support)
         url += (url.indexOf("?") > -1 ? "&" : "?") + "apikey=" + encodeURIComponent(addon.apiKey);
       }
     }
 
     // Add request timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     let response;
     let requestOptions = {
@@ -34,29 +32,38 @@ async function callAddon(addon, params = {}) {
       signal: controller.signal
     };
 
+    // Enhanced request handling for streaming addons
+    if (params.resource === 'stream') {
+      // Some streaming addons require POST requests
+      if (addon.streaming?.method === 'POST' || addon.type === 'torrent') {
+        requestOptions.method = 'POST';
+        requestOptions.headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify(params);
+      } else {
+        // For GET requests: append params as query string
+        Object.keys(params).forEach(key => {
+          if (params[key] !== undefined && params[key] !== null) {
+            url += `${url.indexOf("?") > -1 ? "&" : "?"}${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
+          }
+        });
+      }
+    }
     // For GET requests: append params as query string
-    if (addon.type === "scraper" || addon.type === "catalog" || addon.type === "torrent") {
+    else if (addon.type === "scraper" || addon.type === "catalog" || addon.type === "torrent") {
       Object.keys(params).forEach(key => {
         if (params[key] !== undefined && params[key] !== null) {
           url += `${url.indexOf("?") > -1 ? "&" : "?"}${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
         }
       });
-      
-      response = await fetch(url, requestOptions);
     }
     // For debrid, use POST with JSON body
     else if (addon.type === "debrid") {
       requestOptions.method = "POST";
       requestOptions.headers["Content-Type"] = "application/json";
       requestOptions.body = JSON.stringify(params);
-      
-      response = await fetch(url, requestOptions);
-    }
-    // Default case
-    else {
-      response = await fetch(url, requestOptions);
     }
 
+    response = await fetch(url, requestOptions);
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -70,9 +77,38 @@ async function callAddon(addon, params = {}) {
 
     const data = await response.json();
     
-    // Basic response validation
-    if (typeof data !== 'object') {
-      throw new Error('Invalid response format: expected JSON object');
+    // Enhanced response validation for streams
+    if (params.resource === 'stream') {
+      if (!data) {
+        throw new Error('Empty response from addon');
+      }
+
+      // Normalize stream response
+      let streams = [];
+      if (Array.isArray(data)) {
+        streams = data;
+      } else if (data.streams && Array.isArray(data.streams)) {
+        streams = data.streams;
+      } else if (typeof data === 'object') {
+        // Single stream object
+        streams = [data];
+      }
+
+      // Validate and clean streams
+      streams = streams.filter(stream => 
+        stream && 
+        (stream.url || stream.magnet) && 
+        !stream.broken && 
+        !stream.dead
+      ).map(stream => ({
+        ...stream,
+        title: stream.title || stream.name || 'Stream',
+        quality: stream.quality || 'unknown',
+        size: stream.size || '',
+        type: stream.type || (stream.magnet ? 'torrent' : 'direct')
+      }));
+
+      return { streams };
     }
 
     return data;
@@ -206,9 +242,26 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       baseUrl += '/';
     }
 
+    // Handle special cases for streaming addons
+    if (resource === 'stream' && addon.streaming?.endpoint) {
+      baseUrl = addon.streaming.endpoint;
+    } else if (resource === 'stream' && addon.stream?.endpoint) {
+      baseUrl = addon.stream.endpoint;
+    }
+
     let url = `${baseUrl}${resource}`;
 
-    if (type && id) {
+    // Special handling for stream URLs
+    if (resource === 'stream') {
+      // Some addons expect different URL formats for streams
+      if (addon.type === 'torrent' || addon.streaming?.type === 'torrent') {
+        url = `${baseUrl}${type}/${id}/stream`;
+      } else if (addon.streaming?.urlPattern) {
+        url = addon.streaming.urlPattern
+          .replace('{type}', type)
+          .replace('{id}', id);
+      }
+    } else if (type && id) {
       url += `/${type}/${id}`;
     }
 
@@ -222,11 +275,14 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       url += `:${extraParams}`;
     }
 
-    url += '.json';
+    // Only add .json if URL doesn't already have an extension
+    if (!url.match(/\.[a-z]+$/i)) {
+      url += '.json';
+    }
 
     // Add API key if present
     if (addon.apiKey && addon.type !== 'debrid') {
-      url += `?api_key=${encodeURIComponent(addon.apiKey)}`;
+      url += `${url.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(addon.apiKey)}`;
     }
 
     return url;
