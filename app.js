@@ -198,6 +198,31 @@ async function saveAddon() {
       if (!manifest.id || !manifest.name) {
         throw new Error('Invalid manifest format - missing required fields (id, name)');
       }
+
+      // Normalize resources array
+      let resources = [];
+      if (manifest.resources && Array.isArray(manifest.resources)) {
+        resources = manifest.resources;
+      } else if (manifest.resources && typeof manifest.resources === 'object') {
+        // Some addons use object format for resources
+        resources = Object.keys(manifest.resources);
+      }
+      
+      // Normalize types array
+      let types = [];
+      if (manifest.types && Array.isArray(manifest.types)) {
+        types = manifest.types;
+      } else if (manifest.types && typeof manifest.types === 'object') {
+        types = Object.keys(manifest.types);
+      }
+
+      // Force stream resource if manifest indicates streaming capability
+      if (manifest.stream || manifest.streaming || manifest.torrent || 
+          types.includes('movie') || types.includes('series')) {
+        if (!resources.includes('stream')) {
+          resources.push('stream');
+        }
+      }
       
       const addonInfo = {
         id: manifest.id,
@@ -206,10 +231,10 @@ async function saveAddon() {
         version: manifest.version || '1.0.0',
         url: addonUrl.replace('/manifest.json', ''),
         manifestUrl: addonUrl,
-        resources: manifest.resources || [],
-        types: manifest.types || [],
+        resources: resources,
+        types: types,
         catalogs: manifest.catalogs || [],
-        type: determineAddonType(manifest.resources || []),
+        type: determineAddonType(resources),
         dateAdded: new Date().toISOString()
       };
 
