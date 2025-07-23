@@ -896,38 +896,35 @@ svg {
 
 /* === STATUS COMPONENTS === */
 .status-message {
-  margin: var(--space-3) 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-base);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--line-height-normal);
-  border: 1px solid;
   display: none;
 }
 
-.status-success {
-  background-color: var(--color-success-bg);
-  color: var(--color-success);
-  border-color: var(--color-success-border);
+.status-message.info {
+  background-color: var(--color-info-subtle);
+  color: var(--color-info-emphasis);
+  border: 1px solid var(--color-info-muted);
 }
 
-.status-error {
-  background-color: var(--color-error-bg);
-  color: var(--color-error);
-  border-color: var(--color-error-border);
+.status-message.error {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger-emphasis);
+  border: 1px solid var(--color-danger-muted);
 }
 
-.status-warning {
-  background-color: var(--color-warning-bg);
-  color: var(--color-warning);
-  border-color: var(--color-warning-border);
+.status-message.success {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success-emphasis);
+  border: 1px solid var(--color-success-muted);
 }
 
-.status-loading {
-  background-color: var(--color-info-bg);
-  color: var(--color-info);
-  border-color: var(--color-info-border);
+.status-message.loading {
+  background-color: var(--color-neutral-subtle);
+  color: var(--color-neutral-emphasis);
+  border: 1px solid var(--color-neutral-muted);
 }
 
 /* === EMPTY STATES === */

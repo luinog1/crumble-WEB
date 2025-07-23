@@ -163,6 +163,15 @@ async function saveAddon() {
     
     let addonUrl = urlInput.value.trim();
     console.log('Processing addon URL:', addonUrl);
+
+    // Special handling for Torrentio
+    if (addonUrl.includes('torrentio.strem.fun')) {
+      // Configure Torrentio with default providers
+      const configuredUrl = await configureTorrentio(addonUrl);
+      if (configuredUrl) {
+        addonUrl = configuredUrl;
+      }
+    }
     
     // Ensure URL ends with manifest.json
     if (!addonUrl.endsWith('/manifest.json')) {
@@ -356,6 +365,66 @@ async function saveAddon() {
   }
 }
 window.saveAddon = saveAddon;
+
+async function configureTorrentio(baseUrl) {
+  try {
+    // Remove manifest.json if present
+    const torrentioBase = baseUrl.replace('/manifest.json', '');
+    
+    // Default configuration for Torrentio
+    const config = {
+      "providers": [
+        "1337x",
+        "thepiratebay",
+        "rarbg",
+        "torrentgalaxy",
+        "magnetdl",
+        "eztv",
+        "kickasstorrents",
+        "horriblesubs",
+        "nyaasi",
+        "tokyotosho",
+        "anidex",
+        "rutor",
+        "rutracker",
+        "yts"
+      ],
+      "sort": "seeders",
+      "languages": ["en"],
+      "qualityFilter": "all",
+      "debridProvider": ""
+    };
+
+    // Build the configuration URL
+    const configParams = new URLSearchParams();
+    configParams.append('providers', config.providers.join(','));
+    configParams.append('sort', config.sort);
+    configParams.append('languages', config.languages.join(','));
+    configParams.append('qualityFilter', config.qualityFilter);
+    if (config.debridProvider) {
+      configParams.append('debridProvider', config.debridProvider);
+    }
+
+    const configUrl = `${torrentioBase}/configure/${configParams.toString()}`;
+    console.log('Configuring Torrentio with URL:', configUrl);
+
+    // Make the configuration request
+    const response = await fetch(configUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to configure Torrentio: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('Torrentio configuration result:', result);
+
+    // Return the configured manifest URL
+    return `${torrentioBase}/manifest.json`;
+  } catch (error) {
+    console.error('Error configuring Torrentio:', error);
+    showAddonStatus(`Error configuring Torrentio: ${error.message}`, 'error');
+    return null;
+  }
+}
 
 function editAddon(idx) {
   console.log('editAddon called with index:', idx);
@@ -867,10 +936,18 @@ function showStatus(element, message, type) {
   }
 }
 
-function showAddonStatus(message, type) {
+function showAddonStatus(message, type = 'info') {
   const statusDiv = document.getElementById('addon-status');
   if (statusDiv) {
-    showStatus(statusDiv, message, type);
+    statusDiv.textContent = message;
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.style.display = 'block';
+    
+    if (type !== 'error') {
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 3000);
+    }
   }
 }
 
