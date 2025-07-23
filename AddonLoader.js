@@ -237,29 +237,45 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       throw new Error('Invalid addon configuration');
     }
 
-    let baseUrl = addon.url;
+    // Remove manifest.json from the base URL if present
+    let baseUrl = addon.url.replace('/manifest.json', '');
     if (!baseUrl.endsWith('/')) {
       baseUrl += '/';
     }
 
     // Handle special cases for streaming addons
     if (resource === 'stream' && addon.streaming?.endpoint) {
-      baseUrl = addon.streaming.endpoint;
+      baseUrl = addon.streaming.endpoint.replace('/manifest.json', '');
     } else if (resource === 'stream' && addon.stream?.endpoint) {
-      baseUrl = addon.stream.endpoint;
+      baseUrl = addon.stream.endpoint.replace('/manifest.json', '');
+    }
+
+    // Check if the ID is supported by the addon
+    if (resource === 'stream' && addon.idPrefixes && addon.idPrefixes.length > 0) {
+      const idPrefix = id.split(':')[0] || id.substring(0, 2);
+      if (!addon.idPrefixes.includes(idPrefix)) {
+        throw new Error(`Unsupported ID format for ${addon.name}. Expected one of: ${addon.idPrefixes.join(', ')}`);
+      }
     }
 
     let url = `${baseUrl}${resource}`;
 
     // Special handling for stream URLs
     if (resource === 'stream') {
-      // Some addons expect different URL formats for streams
-      if (addon.type === 'torrent' || addon.streaming?.type === 'torrent') {
+      // Special case for Torrentio
+      if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
+        // Ensure proper ID format for Torrentio (should be IMDb ID)
+        const torrentioId = id.startsWith('tt') ? id : `tt${id}`;
+        url = `${baseUrl}stream/${type}/${torrentioId}.json`;
+      }
+      // Handle other streaming addons
+      else if (addon.type === 'torrent' || addon.streaming?.type === 'torrent') {
         url = `${baseUrl}${type}/${id}/stream`;
       } else if (addon.streaming?.urlPattern) {
         url = addon.streaming.urlPattern
           .replace('{type}', type)
-          .replace('{id}', id);
+          .replace('{id}', id)
+          .replace('/manifest.json', '');
       }
     } else if (type && id) {
       url += `/${type}/${id}`;
@@ -275,8 +291,8 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       url += `:${extraParams}`;
     }
 
-    // Only add .json if URL doesn't already have an extension
-    if (!url.match(/\.[a-z]+$/i)) {
+    // Add .json extension if not present
+    if (!url.endsWith('.json')) {
       url += '.json';
     }
 
@@ -285,6 +301,7 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       url += `${url.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(addon.apiKey)}`;
     }
 
+    console.log(`Built URL for ${addon.name}:`, url);
     return url;
 
   } catch (error) {

@@ -168,6 +168,8 @@ async function saveAddon() {
     if (!addonUrl.endsWith('/manifest.json')) {
       if (addonUrl.endsWith('/')) {
         addonUrl += 'manifest.json';
+      } else if (addonUrl.endsWith('.json')) {
+        addonUrl = addonUrl.replace('.json', '/manifest.json');
       } else {
         addonUrl += '/manifest.json';
       }
@@ -202,7 +204,13 @@ async function saveAddon() {
       // Normalize resources array
       let resources = [];
       if (manifest.resources && Array.isArray(manifest.resources)) {
-        resources = manifest.resources;
+        resources = manifest.resources.map(r => {
+          // Handle Torrentio-style resource objects
+          if (typeof r === 'object' && r.name) {
+            return r.name;
+          }
+          return r;
+        });
       } else if (manifest.resources && typeof manifest.resources === 'object') {
         // Some addons use object format for resources
         resources = Object.keys(manifest.resources);
@@ -216,30 +224,19 @@ async function saveAddon() {
         types = Object.keys(manifest.types);
       }
 
-      // Enhanced streaming capability detection
-      const hasStreamingCapability = 
-        manifest.stream || 
-        manifest.streaming || 
-        manifest.torrent ||
-        types.includes('movie') || 
-        types.includes('series') ||
-        (manifest.catalogs && manifest.catalogs.some(cat => 
-          cat.type === 'movie' || cat.type === 'series'
-        ));
+      // Get supported types from resources if available
+      const resourceTypes = manifest.resources?.find(r => r.name === 'stream')?.types || [];
+      if (resourceTypes.length > 0) {
+        types = [...new Set([...types, ...resourceTypes])];
+      }
 
       // Force stream resource if manifest indicates streaming capability
-      if (hasStreamingCapability) {
+      if (manifest.stream || manifest.streaming || manifest.torrent || 
+          types.includes('movie') || types.includes('series') || types.includes('anime')) {
         if (!resources.includes('stream')) {
           resources.push('stream');
         }
       }
-
-      // Normalize streaming-related fields
-      const streamingConfig = {
-        stream: manifest.stream || false,
-        streaming: manifest.streaming || false,
-        torrent: manifest.torrent || false
-      };
       
       const addonInfo = {
         id: manifest.id,
@@ -251,8 +248,9 @@ async function saveAddon() {
         resources: resources,
         types: types,
         catalogs: manifest.catalogs || [],
-        type: determineAddonType(resources, types, streamingConfig),
-        streaming: streamingConfig,
+        type: determineAddonType(resources, types),
+        behaviorHints: manifest.behaviorHints || {},
+        idPrefixes: manifest.resources?.find(r => r.name === 'stream')?.idPrefixes || [],
         dateAdded: new Date().toISOString()
       };
 
@@ -396,6 +394,11 @@ async function handlePlayButton(movieId, movieTitle) {
         });
         
         if (!response.ok) {
+          console.error(`Failed response from ${addon.name}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            url: streamUrl
+          });
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
@@ -404,6 +407,7 @@ async function handlePlayButton(movieId, movieTitle) {
 
         // Enhanced stream response validation and normalization
         if (!result) {
+          console.error(`Empty response from ${addon.name}`);
           throw new Error('Empty response');
         }
 
@@ -420,21 +424,34 @@ async function handlePlayButton(movieId, movieTitle) {
 
         // Validate and normalize streams
         if (!streamData.streams || !Array.isArray(streamData.streams)) {
+          console.error(`Invalid stream data format from ${addon.name}:`, streamData);
           throw new Error('Invalid stream data format');
         }
 
         // Filter out invalid streams and normalize stream objects
-        const validStreams = streamData.streams.filter(s => s && (s.url || s.magnet)).map(s => ({
-          ...s,
-          title: s.title || s.name || 'Stream',
-          quality: s.quality || 'unknown',
-          size: s.size || '',
-          addon: addon.name
-        }));
+        const validStreams = streamData.streams
+          .filter(s => {
+            const isValid = s && (s.url || s.magnet) && !s.broken && !s.dead;
+            if (!isValid) {
+              console.log(`Filtered out invalid stream from ${addon.name}:`, s);
+            }
+            return isValid;
+          })
+          .map(s => ({
+            ...s,
+            title: s.title || s.name || 'Stream',
+            quality: s.quality || 'unknown',
+            size: s.size || '',
+            addon: addon.name
+          }));
 
+        console.log(`Found ${validStreams.length} valid streams from ${addon.name}`);
         return { success: true, data: { streams: validStreams }, addon: addon.name };
       } catch (error) {
-        console.error(`Error from ${addon.name}:`, error);
+        console.error(`Error from ${addon.name}:`, error, {
+          addon,
+          movieId
+        });
         return { success: false, error: error.message, addon: addon.name };
       }
     });
@@ -722,9 +739,8 @@ function setAddons(addons) {
   }
 }
 
-function determineAddonType(resources, types, streamingConfig) {
+function determineAddonType(resources, types) {
   if (!resources || !Array.isArray(resources)) return 'unknown';
-  if (streamingConfig.stream || streamingConfig.streaming || streamingConfig.torrent) return 'torrent';
   if (resources.includes('catalog')) return 'catalog';
   if (resources.includes('meta')) return 'meta';
   if (resources.includes('subtitles')) return 'subtitles';
