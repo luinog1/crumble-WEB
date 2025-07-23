@@ -475,287 +475,93 @@ async function handlePlayButton(movieId, movieTitle) {
   console.log('=== Stream Request Started ===');
   console.log('Input:', { movieId, movieTitle });
 
-  // Ensure movieId is a string and remove any non-alphanumeric characters
-  const cleanMovieId = movieId.toString().trim();
-  console.log('Cleaned movie ID:', cleanMovieId);
-
   try {
-    // Get all addons that have stream capability
     const allAddons = getAddons();
-    console.log('Loaded addons:', allAddons);
-    
-    if (!allAddons || allAddons.length === 0) {
-      console.error('No addons found in storage');
+    if (!allAddons?.length) {
       alert('No addons configured. Please add at least one streaming addon in Settings.');
       return;
     }
-    
-    const streamingAddons = allAddons.filter(addon => {
-      console.log('\nAnalyzing addon:', addon.name);
-      // Check both resources array and type for streaming capability
-      const hasStreamResource = addon.resources && Array.isArray(addon.resources) && addon.resources.includes('stream');
-      const isTorrentType = addon.type === 'torrent';
-      const isStreamingType = hasStreamResource || isTorrentType;
-      console.log(`Addon ${addon.name}:`, {
-        hasStreamResource,
-        isTorrentType,
-        isStreamingType,
-        resources: addon.resources,
-        type: addon.type,
-        idPrefixes: addon.idPrefixes
-      });
-      return isStreamingType;
-    });
-    
-    console.log('\nFiltered streaming addons:', streamingAddons.map(a => a.name));
 
-    if (!streamingAddons || streamingAddons.length === 0) {
-      console.error('No streaming addons found');
-      alert('No streaming addons configured. Please add at least one streaming addon in Settings.');
+    // Filter addons that support streaming
+    const streamingAddons = allAddons.filter(addon => {
+      return addon.resources?.includes('stream') || 
+             addon.type === 'torrent' || 
+             addon.type === 'stremio';
+    });
+
+    if (!streamingAddons.length) {
+      alert('No streaming addons found. Please add a streaming addon in Settings.');
       return;
     }
 
     showStreamModal('Loading streams...', []);
     
-    // Format movieId for different addon types
-    const formatMovieId = (addon, id) => {
-      console.log(`\nFormatting ID for ${addon.name}:`, { originalId: id });
-      
-      // Special case for Torrentio
-      if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
-        // If it's already a valid IMDb ID, return as is
-        if (id.startsWith('tt')) {
-          console.log('Using existing IMDb ID:', id);
-          return id;
-        }
-        // If it's a numeric ID, convert to IMDb format
-        const numericId = id.toString().replace(/\D/g, '');
-        if (numericId) {
-          const formattedId = `tt${numericId.padStart(7, '0')}`;
-          console.log('Converted to IMDb ID:', { original: id, formatted: formattedId });
-          return formattedId;
-        }
-        console.warn('Unable to format ID for Torrentio:', id);
-        throw new Error('Invalid ID format for Torrentio - requires IMDb ID');
-      }
-
-      // For other addons that require specific ID prefixes
-      if (addon.idPrefixes && addon.idPrefixes.length > 0) {
-        // Check if the ID already has a valid prefix
-        const currentPrefix = id.split(':')[0] || id.substring(0, 2);
-        if (addon.idPrefixes.includes(currentPrefix)) {
-          console.log('ID already has valid prefix:', id);
-          return id;
-        }
-
-        // Try to convert to a supported format
-        if (addon.idPrefixes.includes('tt')) {
-          // Convert to IMDb format
-          const numericId = id.toString().replace(/\D/g, '');
-          if (numericId) {
-            const formattedId = `tt${numericId.padStart(7, '0')}`;
-            console.log('Converted to IMDb format:', { original: id, formatted: formattedId });
-            return formattedId;
-          }
-        } else if (addon.idPrefixes.includes('kitsu') && !id.startsWith('kitsu:')) {
-          const formattedId = `kitsu:${id}`;
-          console.log('Converted to Kitsu format:', { original: id, formatted: formattedId });
-          return formattedId;
-        }
-
-        console.warn('Unable to convert ID to supported format:', {
-          id,
-          supportedPrefixes: addon.idPrefixes
-        });
-        throw new Error(`Unsupported ID format. Expected one of: ${addon.idPrefixes.join(', ')}`);
-      }
-
-      // For addons without specific ID requirements
-      console.log('Using original ID (no format requirements):', id);
-      return id;
-    };
-
     const streamPromises = streamingAddons.map(async (addon) => {
-      console.log(`\n=== Processing Addon: ${addon.name} ===`);
       try {
-        // Format the ID appropriately for this addon
-        const formattedId = formatMovieId(addon, cleanMovieId);
-        console.log('ID Formatting:', { 
-          addon: addon.name,
-          original: cleanMovieId,
-          formatted: formattedId,
-          idPrefixes: addon.idPrefixes
-        });
+        const streamUrl = buildAddonUrl(addon, 'stream', 'movie', movieId);
+        console.log(`Fetching streams from ${addon.name}:`, streamUrl);
 
-        // Skip this addon if we couldn't format the ID properly
-        if (!formattedId) {
-          console.warn(`Skipping ${addon.name} due to ID format issues`);
-          return { 
-            success: false, 
-            error: 'Invalid ID format', 
-            addon: addon.name 
-          };
-        }
-
-        // Construct the URL for stream request
-        const streamUrl = buildAddonUrl(addon, 'stream', 'movie', formattedId);
-        console.log('Stream URL:', {
-          addon: addon.name,
-          url: typeof streamUrl === 'string' ? streamUrl : streamUrl.url,
-          headers: typeof streamUrl === 'object' ? streamUrl.headers : undefined
-        });
-        
-        // Handle URL object with headers
-        const requestOptions = {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Crumble/1.0'
-          },
+        const response = await fetch(streamUrl, {
+          headers: { 'Accept': 'application/json' },
           signal: AbortSignal.timeout(30000) // 30 second timeout
-        };
+        });
 
-        // If streamUrl is an object with headers, merge them
-        if (typeof streamUrl === 'object' && streamUrl.headers) {
-          Object.assign(requestOptions.headers, streamUrl.headers);
-          console.log('Final request headers:', requestOptions.headers);
-        }
-
-        console.log('Fetching streams...');
-        const response = await fetch(
-          typeof streamUrl === 'string' ? streamUrl : streamUrl.url,
-          requestOptions
-        );
-        
         if (!response.ok) {
-          console.error('Failed response:', {
-            addon: addon.name,
-            status: response.status,
-            statusText: response.statusText,
-            url: typeof streamUrl === 'string' ? streamUrl : streamUrl.url
-          });
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const result = await response.json();
-        console.log('Raw response:', {
-          addon: addon.name,
-          result
-        });
+        console.log(`${addon.name} response:`, result);
 
-        // Enhanced stream response validation and normalization
-        if (!result) {
-          console.error('Empty response from addon:', addon.name);
-          throw new Error('Empty response');
+        // Normalize response format
+        let streams = [];
+        if (Array.isArray(result)) {
+          streams = result;
+        } else if (result.streams) {
+          streams = result.streams;
+        } else if (result.links) {
+          streams = result.links;
         }
 
-        // Handle different response formats
-        let streamData = result;
-        if (result.streams) {
-          streamData = result;
-          console.log('Found streams array in response');
-        } else if (Array.isArray(result)) {
-          streamData = { streams: result };
-          console.log('Converted array response to streams object');
-        } else if (typeof result === 'object' && !result.streams) {
-          // Some addons might return a single stream object
-          streamData = { streams: [result] };
-          console.log('Converted single stream to streams array');
-        }
-
-        // Validate and normalize streams
-        if (!streamData.streams || !Array.isArray(streamData.streams)) {
-          console.error('Invalid stream data format:', {
-            addon: addon.name,
-            data: streamData
-          });
-          throw new Error('Invalid stream data format');
-        }
-
-        // Filter out invalid streams and normalize stream objects
-        const validStreams = streamData.streams
-          .filter(s => {
-            const isValid = s && (s.url || s.magnet) && !s.broken && !s.dead;
-            if (!isValid) {
-              console.log('Filtered out invalid stream:', {
-                addon: addon.name,
-                stream: s,
-                reason: !s ? 'null stream' :
-                        !s.url && !s.magnet ? 'no url or magnet' :
-                        s.broken ? 'marked as broken' :
-                        s.dead ? 'marked as dead' : 'unknown'
-              });
-            }
-            return isValid;
-          })
+        // Filter and format streams
+        return streams
+          .filter(s => s && (s.url || s.magnet) && !s.broken && !s.dead)
           .map(s => ({
             ...s,
             title: s.title || s.name || 'Stream',
-            quality: s.quality || 'unknown',
-            size: s.size || '',
-            addon: addon.name
+            quality: s.quality || (s.qualityLabel || '').replace('p', '') + 'p' || 'unknown',
+            size: s.size || s.fileSize || '',
+            addon: addon.name,
+            type: s.type || 'stream'
           }));
 
-        console.log('Stream processing complete:', {
-          addon: addon.name,
-          totalStreams: streamData.streams.length,
-          validStreams: validStreams.length
-        });
-        
-        return { success: true, data: { streams: validStreams }, addon: addon.name };
       } catch (error) {
-        console.error('Addon error:', {
-          addon: addon.name,
-          error: error.message,
-          stack: error.stack,
-          movieId
-        });
-        return { success: false, error: error.message, addon: addon.name };
+        console.error(`Error from ${addon.name}:`, error);
+        return []; // Return empty array on error
       }
     });
-    
-    console.log('\nWaiting for all stream requests to complete...');
+
+    // Process all streams
     const results = await Promise.all(streamPromises);
-    console.log('All stream requests completed:', results);
-    
-    let streams = [];
-    results.forEach(result => {
-      if (result.success && result.data && Array.isArray(result.data.streams)) {
-        const validStreams = result.data.streams.filter(s => 
-          s && (s.url || s.magnet) && // Must have either URL or magnet
-          (!s.broken) && // Skip streams marked as broken
-          (!s.dead) // Skip streams marked as dead
-        );
-        if (validStreams.length > 0) {
-          streams = streams.concat(validStreams);
-          console.log(`Added ${validStreams.length} streams from ${result.addon}`);
-        } else {
-          console.warn(`No valid streams from ${result.addon} after filtering`);
-        }
-      } else {
-        console.warn(`No valid streams from ${result.addon}:`, result);
-      }
-    });
+    const allStreams = results.flat();
 
-    console.log(`Total streams found: ${streams.length}`);
-
-    if (streams.length === 0) {
-      console.log('No streams found, showing empty state');
-      showStreamModal('No streams found for this movie.', []);
+    if (!allStreams.length) {
+      showStreamModal('No streams found for this content.', []);
       return;
     }
 
-    // Sort streams by quality (if available)
-    streams.sort((a, b) => {
-      const qualityOrder = { '4K': 4, '1080p': 3, '720p': 2, '480p': 1 };
-      const aQuality = qualityOrder[a.quality] || 0;
-      const bQuality = qualityOrder[b.quality] || 0;
-      return bQuality - aQuality;
+    // Sort by quality (highest first)
+    const qualityOrder = { '4K': 5, '2160p': 4, '1080p': 3, '720p': 2, '480p': 1 };
+    allStreams.sort((a, b) => {
+      const aQuality = qualityOrder[a.quality?.toLowerCase()] || 0;
+      const bQuality = qualityOrder[b.quality?.toLowerCase()] || 0;
+      return bQuality - aQuality || (a.title || '').localeCompare(b.title || '');
     });
 
-    console.log('=== Stream Request Completed ===');
-    showStreamModal(`${streams.length} streams found for "${movieTitle}"`, streams);
+    showStreamModal(`${allStreams.length} streams found for "${movieTitle}"`, allStreams);
+
   } catch (error) {
-    console.error('Fatal error in stream handling:', error);
+    console.error('Error in handlePlayButton:', error);
     showStreamModal('Error loading streams: ' + error.message, []);
   }
 }

@@ -268,110 +268,43 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
     }
 
     // Get the appropriate base URL
-    let baseUrl;
-    
-    // Check for resource-specific endpoint
-    if (addon.endpoints?.[resource]) {
-      baseUrl = addon.endpoints[resource].replace('/manifest.json', '');
-    } else if (addon.config?.[resource]?.endpoint) {
-      baseUrl = addon.config[resource].endpoint.replace('/manifest.json', '');
-    } else {
-      baseUrl = addon.url.replace('/manifest.json', '');
-    }
+    let baseUrl = addon.url.replace('/manifest.json', '');
+    if (!baseUrl.endsWith('/')) baseUrl += '/';
 
-    // Ensure trailing slash
-    if (!baseUrl.endsWith('/')) {
-      baseUrl += '/';
-    }
-
-    // Format ID for Torrentio or other addons that require specific ID formats
-    let formattedId = id;
-    if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
-      // If it's already a valid IMDb ID, use it as is
-      if (id.startsWith('tt')) {
-        formattedId = id;
-      } else {
-        // If it's a numeric ID, convert to IMDb format
-        const numericId = id.toString().replace(/\D/g, '');
-        if (numericId) {
-          formattedId = `tt${numericId.padStart(7, '0')}`;
-        } else {
-          throw new Error('Invalid ID format for Torrentio - requires IMDb ID');
-        }
+    // Handle different addon types
+    if (addon.type === 'stremio' || addon.id === 'stremio') {
+      // Standard Stremio addon format
+      if (resource === 'meta') {
+        return `${baseUrl}meta/${type}/${id}.json`;
+      } else if (resource === 'catalog') {
+        return `${baseUrl}catalog/${type}/${id || 'top'}.json`;
+      } else if (resource === 'stream') {
+        return `${baseUrl}stream/${type}/${id}.json`;
       }
-    }
-
-    let url;
-
-    // Get resource-specific URL pattern
-    const urlPattern = addon.config?.[resource]?.urlPattern || 
-                      addon.endpoints?.[`${resource}Pattern`];
-
-    if (urlPattern) {
-      // Use custom URL pattern
-      url = urlPattern
-        .replace('{baseUrl}', baseUrl)
-        .replace('{resource}', resource)
-        .replace('{type}', type || '')
-        .replace('{id}', formattedId || '')
-        .replace('/manifest.json', '');
-    } else {
-      // Build URL based on addon type and resource
-      url = `${baseUrl}${resource}`;
-
+    } 
+    // Handle Torrentio specifically
+    else if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
       if (resource === 'stream') {
-        // Special case for Torrentio
-        if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
-          url = `${baseUrl}stream/${type}/${formattedId}.json`;
-          console.log('Built Torrentio URL:', url);
-        }
-        // Handle other streaming addons
-        else if (addon.type === 'torrent' || addon.config?.streaming?.type === 'torrent') {
-          url = `${baseUrl}${type}/${formattedId}/stream`;
-        } else {
-          url = `${baseUrl}${resource}/${type}/${formattedId}`;
-        }
-      } else if (type && formattedId) {
-        url += `/${type}/${formattedId}`;
+        // Ensure ID is in correct format for Torrentio
+        const imdbId = id.toString().startsWith('tt') ? id : `tt${id.toString().padStart(7, '0')}`;
+        return `${baseUrl}stream/${type}/${imdbId}.json`;
       }
     }
-
-    // Add extra parameters
-    const extraParams = Object.entries(extra)
-      .filter(([key, value]) => value !== undefined && value !== null)
-      .map(([key, value]) => `${key}=${value}`)
-      .join(':');
-
-    if (extraParams) {
-      url += `:${extraParams}`;
-    }
-
-    // Add .json extension if not present and not using custom pattern
-    if (!url.match(/\.[a-z]+$/i) && !urlPattern) {
-      url += '.json';
-    }
-
-    // Add API key if present
-    if (addon.apiKey) {
-      const separator = url.includes('?') ? '&' : '?';
-      if (addon.type === 'debrid' || addon.config?.auth?.type === 'bearer') {
-        // Use Authorization header for these types
-        return {
-          url,
-          headers: {
-            'Authorization': `Bearer ${addon.apiKey}`
-          }
-        };
-      } else {
-        // Add as query parameter
-        url += `${separator}api_key=${encodeURIComponent(addon.apiKey)}`;
+    // Handle generic addons
+    else {
+      // Check for custom endpoints
+      if (addon.endpoints?.[resource]) {
+        const endpoint = addon.endpoints[resource].replace('/manifest.json', '');
+        return `${endpoint}/${type}/${id}.json`;
       }
+      // Default fallback for other addons
+      return `${baseUrl}${resource}/${type}/${id}.json`;
     }
 
-    console.log(`Built URL for ${addon.name}:`, url);
-    return typeof url === 'string' ? url : { url: url.url, headers: url.headers };
+    throw new Error(`Unsupported resource type: ${resource} for addon: ${addon.name}`);
 
   } catch (error) {
+    console.error('Error building addon URL:', error);
     throw new Error(`Failed to build addon URL: ${error.message}`);
   }
 }
