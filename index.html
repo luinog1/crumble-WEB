@@ -43,7 +43,6 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
-
       <!-- Home Tab -->
       <div id="home-tab" class="tab active">
         <!-- Hero Section -->
@@ -172,7 +171,6 @@
           <div class="addon-section">
             <h3>Streaming Addons</h3>
             <div id="addon-list"></div>
-            <!-- Do NOT use inline onclick for this button; it is managed by JS event listener in app.js -->
             <button id="add-addon-btn" class="btn-add-addon" type="button">Add Addon</button>
           </div>
         </div>
@@ -218,13 +216,11 @@
         <div id="stream-list"></div>
       </div>
     </div>
-
   </div>
 
-  <!-- HLS.js Player support -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-  <!-- Main JavaScript -->
+  <!-- Load scripts in correct order -->
+  <script src="tmdb.js"></script>
+  <script src="AddonLoader.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

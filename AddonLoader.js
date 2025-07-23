@@ -1,7 +1,7 @@
 // Enhanced Addon Loader with improved error handling and security
 
 // Utility to call an addon provider (scraper/catalog/debrid/torrent)
-export async function callAddon(addon, params = {}) {
+async function callAddon(addon, params = {}) {
   if (!addon || !addon.url) {
     throw new Error('Invalid addon configuration: missing URL');
   }
@@ -88,7 +88,7 @@ export async function callAddon(addon, params = {}) {
 }
 
 // Enhanced addon validation
-export function validateAddon(addon) {
+function validateAddon(addon) {
   const errors = [];
 
   if (!addon) {
@@ -128,7 +128,7 @@ export function validateAddon(addon) {
 }
 
 // Test addon connectivity
-export async function testAddon(addon) {
+async function testAddon(addon) {
   try {
     const errors = validateAddon(addon);
     if (errors.length > 0) {
@@ -169,7 +169,7 @@ export async function testAddon(addon) {
 }
 
 // Get addon capabilities
-export function getAddonCapabilities(addon) {
+function getAddonCapabilities(addon) {
   const capabilities = {
     canStream: false,
     canSearch: false,
@@ -195,7 +195,7 @@ export function getAddonCapabilities(addon) {
 }
 
 // Safe addon URL construction
-export function buildAddonUrl(addon, resource, type, id, extra = {}) {
+function buildAddonUrl(addon, resource, type, id, extra = {}) {
   try {
     if (!addon || !addon.url) {
       throw new Error('Invalid addon configuration');
@@ -237,7 +237,7 @@ export function buildAddonUrl(addon, resource, type, id, extra = {}) {
 }
 
 // Batch addon calls with error handling
-export async function callMultipleAddons(addons, params = {}) {
+async function callMultipleAddons(addons, params = {}) {
   const results = [];
   const errors = [];
 
@@ -278,3 +278,11 @@ export async function callMultipleAddons(addons, params = {}) {
     errorCount: errors.length
   };
 }
+
+// Export for use in app.js
+window.callAddon = callAddon;
+window.validateAddon = validateAddon;
+window.testAddon = testAddon;
+window.getAddonCapabilities = getAddonCapabilities;
+window.buildAddonUrl = buildAddonUrl;
+window.callMultipleAddons = callMultipleAddons;

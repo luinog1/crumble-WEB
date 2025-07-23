@@ -20,7 +20,6 @@ window.showMovieDetails = null;
 window.selectStream = null;
 window.filterStreams = null;
 window.closeStreamModal = null;
-import { callMultipleAddons } from './AddonLoader.js';
 
 // === TMDB API FUNCTIONS ===
 const BASE_URL = "https://api.themoviedb.org/3";
@@ -103,7 +102,7 @@ async function getMovieDetails(movieId) {
   return await makeSecureTMDBRequest(`/movie/${movieId}`);
 }
 
-// === SETTINGS FUNCTIONS (DEFINE IMMEDIATELY) ===
+// === SETTINGS FUNCTIONS ===
 function saveApiKey() {
   console.log('saveApiKey called');
   
@@ -154,6 +153,7 @@ function saveApiKey() {
     alert(`Error saving API key: ${error.message}`);
   }
 }
+window.saveApiKey = saveApiKey;
 
 function savePlayerChoice() {
   console.log('savePlayerChoice called');
@@ -188,6 +188,7 @@ function savePlayerChoice() {
     alert(`Error saving player choice: ${error.message}`);
   }
 }
+window.savePlayerChoice = savePlayerChoice;
 
 function saveDebridConfig() {
   console.log('saveDebridConfig called');
@@ -233,6 +234,7 @@ function saveDebridConfig() {
     alert(`Error saving debrid config: ${error.message}`);
   }
 }
+window.saveDebridConfig = saveDebridConfig;
 
 // === ADDON FUNCTIONS ===
 function showAddonModal() {
@@ -253,6 +255,7 @@ function showAddonModal() {
     alert(`Error showing addon modal: ${error.message}`);
   }
 }
+window.showAddonModal = showAddonModal;
 
 function closeAddonModal() {
   console.log('closeAddonModal called');
@@ -267,6 +270,7 @@ function closeAddonModal() {
     console.error('Error in closeAddonModal:', error);
   }
 }
+window.closeAddonModal = closeAddonModal;
 
 async function saveAddon() {
   console.log('saveAddon called');
@@ -376,6 +380,7 @@ async function saveAddon() {
     }
   }
 }
+window.saveAddon = saveAddon;
 
 function editAddon(idx) {
   console.log('editAddon called with index:', idx);
@@ -400,6 +405,7 @@ function editAddon(idx) {
     alert(`Error editing addon: ${error.message}`);
   }
 }
+window.editAddon = editAddon;
 
 function removeAddon(idx) {
   console.log('removeAddon called with index:', idx);
@@ -423,6 +429,7 @@ function removeAddon(idx) {
     alert(`Error removing addon: ${error.message}`);
   }
 }
+window.removeAddon = removeAddon;
 
 // === MEDIA FUNCTIONS ===
 async function handlePlayButton(movieId, movieTitle) {
@@ -433,9 +440,9 @@ async function handlePlayButton(movieId, movieTitle) {
       alert('No streaming addons configured. Please add at least one streaming addon in Settings.');
       return;
     }
-    // Show loading modal
     showStreamModal('Loading streams...', []);
-    // Fetch streams from all addons
+    // Dynamically import AddonLoader.js for compatibility
+    const { callMultipleAddons } = await import('./AddonLoader.js');
     const { results } = await callMultipleAddons(addons, { type: 'movie', id: movieId });
     let streams = [];
     results.forEach(r => {
@@ -453,6 +460,7 @@ async function handlePlayButton(movieId, movieTitle) {
     showStreamModal('Error loading streams: ' + error.message, []);
   }
 }
+window.handlePlayButton = handlePlayButton;
 
 function handleTrailerButton(movieId, movieTitle) {
   console.log('handleTrailerButton called:', { movieId, movieTitle });
@@ -474,6 +482,7 @@ function handleTrailerButton(movieId, movieTitle) {
     alert(`Error: ${error.message}`);
   }
 }
+window.handleTrailerButton = handleTrailerButton;
 
 function showMovieDetails(movieId) {
   console.log('showMovieDetails called with ID:', movieId);
@@ -484,6 +493,7 @@ function showMovieDetails(movieId) {
     console.error('Error in showMovieDetails:', error);
   }
 }
+window.showMovieDetails = showMovieDetails;
 
 // === MODAL FUNCTIONS ===
 function closeModal() {
@@ -499,6 +509,7 @@ function closeModal() {
     console.error('Error in closeModal:', error);
   }
 }
+window.closeModal = closeModal;
 
 function closeAddonMetaModal() {
   console.log('closeAddonMetaModal called');
@@ -512,12 +523,14 @@ function closeAddonMetaModal() {
     console.error('Error in closeAddonMetaModal:', error);
   }
 }
+window.closeAddonMetaModal = closeAddonMetaModal;
 
 // === STREAM FUNCTIONS (PLACEHOLDERS) ===
 function filterStreams() {
   console.log('filterStreams called');
   // Placeholder
 }
+window.filterStreams = filterStreams;
 
 function showStreamModal(title, streams) {
   let modal = document.getElementById('stream-modal');
@@ -554,12 +567,14 @@ function showStreamModal(title, streams) {
   modal.style.display = 'block';
   window._currentStreams = streams;
 }
+window.showStreamModal = showStreamModal;
 
 function closeStreamModal() {
   const modal = document.getElementById('stream-modal');
   if (modal) modal.style.display = 'none';
   window._currentStreams = null;
 }
+window.closeStreamModal = closeStreamModal;
 
 function selectStream(index) {
   const streams = window._currentStreams;
@@ -575,6 +590,7 @@ function selectStream(index) {
   }
   closeStreamModal();
 }
+window.selectStream = selectStream;
 
 // === UTILITY FUNCTIONS ===
 function showStatus(element, message, type) {
@@ -1028,6 +1044,7 @@ class TabManager {
     });
   }
 }
+window.tabManager = new TabManager();
 
 // === SEARCH MANAGEMENT ===
 class SearchManager {
@@ -1085,46 +1102,13 @@ class SearchManager {
     }
   }
 }
-
-// === ASSIGN FUNCTIONS TO GLOBAL SCOPE IMMEDIATELY ===
-console.log('Assigning functions to global scope...');
-
-// Assign all functions to window object
-window.saveApiKey = saveApiKey;
-window.savePlayerChoice = savePlayerChoice;
-window.saveDebridConfig = saveDebridConfig;
-window.saveAddon = saveAddon;
-window.editAddon = editAddon;
-window.removeAddon = removeAddon;
-window.showAddonModal = showAddonModal;
-window.closeAddonModal = closeAddonModal;
-window.closeAddonMetaModal = closeAddonMetaModal;
-window.closeModal = closeModal;
-window.handlePlayButton = handlePlayButton;
-window.handleTrailerButton = handleTrailerButton;
-window.showMovieDetails = showMovieDetails;
-window.selectStream = selectStream;
-window.filterStreams = filterStreams;
-window.closeStreamModal = closeStreamModal;
-
-console.log('Global functions assigned:', {
-  saveApiKey: typeof window.saveApiKey,
-  savePlayerChoice: typeof window.savePlayerChoice,
-  saveDebridConfig: typeof window.saveDebridConfig,
-  saveAddon: typeof window.saveAddon,
-  handlePlayButton: typeof window.handlePlayButton,
-  showAddonModal: typeof window.showAddonModal
-});
+window.searchManager = new SearchManager();
 
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing app...');
 
   try {
-    // Initialize managers
-    window.tabManager = new TabManager();
-    window.searchManager = new SearchManager();
-    
     // Setup search functionality
     window.searchManager.setupSearch();
     
