@@ -81,13 +81,29 @@ async function getTrailer(movieId) {
 
 // --- Tab Switching Logic ---
 window.showTab = function(tabId) {
-  console.log('Switching to tab:', tabId);
+  console.log('[DEBUG] showTab called with tabId:', tabId);
+  
+  if (!tabId) {
+    console.error('[ERROR] showTab called without tabId');
+    return;
+  }
+  
+  // Log all tabs and their current active state
+  console.log('[DEBUG] Current tabs:');
+  document.querySelectorAll('.tab').forEach(tab => {
+    console.log(`- ${tab.id}: active=${tab.classList.contains('active')}`);
+  });
   
   // Remove active class from all tabs and nav buttons
-  document.querySelectorAll('.tab').forEach(tab => {
+  const tabs = document.querySelectorAll('.tab');
+  console.log(`[DEBUG] Found ${tabs.length} tabs`);
+  tabs.forEach(tab => {
     tab.classList.remove('active');
   });
-  document.querySelectorAll('.nav-btn').forEach(btn => {
+  
+  const navButtons = document.querySelectorAll('.nav-btn');
+  console.log(`[DEBUG] Found ${navButtons.length} nav buttons`);
+  navButtons.forEach(btn => {
     btn.classList.remove('active');
   });
   
@@ -95,17 +111,25 @@ window.showTab = function(tabId) {
   const selectedTab = document.getElementById(tabId);
   if (selectedTab) {
     selectedTab.classList.add('active');
+    console.log(`[DEBUG] Added active class to tab: ${tabId}`);
     
     // Add active class to corresponding nav button
-    const navButtons = document.querySelectorAll('.nav-btn');
-    if (tabId === 'home-tab') navButtons[0]?.classList.add('active');
-    else if (tabId === 'search-tab') navButtons[1]?.classList.add('active');
-    else if (tabId === 'library-tab') navButtons[2]?.classList.add('active');
-    else if (tabId === 'settings-tab') navButtons[3]?.classList.add('active');
+    let buttonIndex = -1;
+    if (tabId === 'home-tab') buttonIndex = 0;
+    else if (tabId === 'search-tab') buttonIndex = 1;
+    else if (tabId === 'library-tab') buttonIndex = 2;
+    else if (tabId === 'settings-tab') buttonIndex = 3;
     
-    console.log('Tab switched to:', tabId);
+    if (buttonIndex >= 0 && buttonIndex < navButtons.length) {
+      navButtons[buttonIndex].classList.add('active');
+      console.log(`[DEBUG] Added active class to nav button at index ${buttonIndex}`);
+    } else {
+      console.warn(`[WARN] Could not find nav button for tab: ${tabId}`);
+    }
+    
+    console.log(`[DEBUG] Tab switched to: ${tabId}`);
 
-    if(tabId === 'settings-tab') {
+    if (tabId === 'settings-tab') {
       document.getElementById('api-key-input').value = localStorage.getItem('tmdb_api_key') || '';
       document.getElementById('player-select').value = getPlayerChoice();
       document.getElementById('api-key-status').textContent = '';
@@ -1224,6 +1248,45 @@ async function loadPopularTV() {
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing app...');
 
+  // Initialize sidebar navigation
+  const navItems = document.querySelectorAll('.nav-menu li');
+  console.log(`[DEBUG] Found ${navItems.length} sidebar navigation items`);
+  
+  // Add click handlers to each navigation item
+  navItems.forEach(item => {
+    const button = item.querySelector('.nav-btn');
+    if (!button) return;
+    
+    // Store the tab ID on the button for easier access
+    const tabId = item.getAttribute('data-tab');
+    button.setAttribute('data-tab', tabId);
+    
+    // Remove any existing click handlers
+    const newButton = button.cloneNode(true);
+    item.replaceChild(newButton, button);
+    
+    // Add new click handler
+    newButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      const tabId = this.getAttribute('data-tab');
+      console.log('[DEBUG] Sidebar button clicked, switching to tab:', tabId);
+      if (tabId) {
+        // Remove active class from all nav buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        // Add active class to clicked button
+        this.classList.add('active');
+        // Show the selected tab
+        showTab(tabId);
+      }
+    });
+  });
+  
+  // Set initial active tab
+  const initialTab = window.location.hash ? window.location.hash.substring(1) : 'home-tab';
+  showTab(initialTab);
+
   // Load popular movies
   loadHomeCatalogs();
 
@@ -1496,9 +1559,10 @@ async function testAllDebrid(apiKey, magnetUrl) {
 }
 
 // Make functions globally available
-window.saveApiKey = window.saveApiKey;
-window.savePlayerChoice = window.savePlayerChoice;
+window.saveApiKey = saveApiKey;
+window.savePlayerChoice = savePlayerChoice;
 window.showAddonModal = showAddonModal;
+window.showTab = showTab;  // Make sure showTab is globally available
 window.openAddonModal = openAddonModal;
 window.closeAddonModal = closeAddonModal;
 window.saveAddon = saveAddon;
