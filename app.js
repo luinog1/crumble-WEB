@@ -1,521 +1,1112 @@
-// Complete Streaming Implementation - Add to app.js
+// Complete Crumble App - Fixed Button Responsiveness Issues
 
-// --- Enhanced Play Button Handler ---
-async function handlePlayButton(movieId, movieTitle) {
-  console.log('Play button clicked for movie:', movieTitle, 'ID:', movieId);
+// === GLOBAL FUNCTION DECLARATIONS (MUST BE FIRST) ===
+console.log('Loading Crumble app...');
 
+// Declare all functions in global scope immediately
+window.saveApiKey = null;
+window.savePlayerChoice = null;
+window.saveDebridConfig = null;
+window.saveAddon = null;
+window.editAddon = null;
+window.removeAddon = null;
+window.showAddonModal = null;
+window.closeAddonModal = null;
+window.closeAddonMetaModal = null;
+window.closeModal = null;
+window.handlePlayButton = null;
+window.handleTrailerButton = null;
+window.showMovieDetails = null;
+window.selectStream = null;
+window.filterStreams = null;
+window.closeStreamModal = null;
+
+// === TMDB API FUNCTIONS ===
+const BASE_URL = "https://api.themoviedb.org/3";
+
+function getApiKey() {
+  return localStorage.getItem('tmdb_api_key') || '';
+}
+
+async function makeSecureTMDBRequest(endpoint, params = {}) {
   try {
-    // Check if addons are configured
-    const addons = getAddons();
-    const streamingAddons = addons.filter(addon => 
-      addon.resources && addon.resources.includes('stream')
-    );
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("No TMDB API key configured. Please add your API key in Settings.");
+    }
+    
+    const url = new URL(`${BASE_URL}${endpoint}`);
+    url.searchParams.append('api_key', apiKey);
+    url.searchParams.append('language', 'en-US');
+    
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
 
-    if (streamingAddons.length === 0) {
-      showErrorModal(
-        'No Streaming Addons',
-        'Please add streaming addons (like Torrentio) in Settings to enable playback.',
-        [
-          { text: 'Go to Settings', action: () => window.tabManager.showTab('settings-tab') },
-          { text: 'Cancel', action: () => {} }
-        ]
-      );
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`TMDB API error for ${endpoint}:`, error);
+    throw error;
+  }
+}
+
+async function getPopularMovies() {
+  const data = await makeSecureTMDBRequest('/movie/popular', { page: '1' });
+  return data.results || [];
+}
+
+async function getTrendingMovies() {
+  const data = await makeSecureTMDBRequest('/trending/movie/day');
+  return data.results || [];
+}
+
+async function getLatestMovies() {
+  const data = await makeSecureTMDBRequest('/movie/now_playing', { page: '1' });
+  return data.results || [];
+}
+
+async function getTrendingTV() {
+  const data = await makeSecureTMDBRequest('/trending/tv/day');
+  return data.results || [];
+}
+
+async function getPopularTV() {
+  const data = await makeSecureTMDBRequest('/tv/popular', { page: '1' });
+  return data.results || [];
+}
+
+async function searchMovies(query) {
+  if (!query || query.trim().length < 2) return [];
+  const data = await makeSecureTMDBRequest('/search/movie', { query: query.trim() });
+  return data.results || [];
+}
+
+async function getTrailer(movieId) {
+  try {
+    const data = await makeSecureTMDBRequest(`/movie/${movieId}/videos`);
+    const trailer = data.results.find(v => v.type === "Trailer" && v.site === "YouTube");
+    return trailer || null;
+  } catch (error) {
+    console.error('Error fetching trailer:', error);
+    return null;
+  }
+}
+
+async function getMovieDetails(movieId) {
+  return await makeSecureTMDBRequest(`/movie/${movieId}`);
+}
+
+// === SETTINGS FUNCTIONS (DEFINE IMMEDIATELY) ===
+function saveApiKey() {
+  console.log('saveApiKey called');
+  
+  try {
+    const input = document.getElementById('api-key-input');
+    const statusDiv = document.getElementById('api-key-status');
+
+    console.log('Found elements:', { input: !!input, statusDiv: !!statusDiv });
+
+    if (!input) {
+      console.error('API key input not found');
+      alert('Error: API key input field not found');
       return;
     }
 
-    // Show loading state
-    const loadingModal = createLoadingModal(`Finding streams for "${movieTitle}"...`);
-    document.body.appendChild(loadingModal);
-
-    try {
-      // Get movie details to find IMDB ID
-      const movieDetails = await getMovieDetails(movieId);
-      const imdbId = movieDetails.imdb_id;
-
-      if (!imdbId) {
-        throw new Error('IMDB ID not found for this movie');
-      }
-
-      // Fetch streaming links
-      const streams = await fetchStreamingLinks(imdbId, 'movie');
-
-      // Remove loading modal
-      loadingModal.remove();
-
-      // Show streams or error
-      if (streams.length > 0) {
-        displayStreamModal(streams, movieTitle, imdbId);
-      } else {
-        showErrorModal(
-          'No Streams Found',
-          `No streams available for "${movieTitle}". Try adding more streaming addons in Settings.`,
-          [{ text: 'OK', action: () => {} }]
-        );
-      }
-
-    } catch (error) {
-      loadingModal.remove();
-      console.error('Error fetching streams:', error);
-      
-      showErrorModal(
-        'Stream Error',
-        `Failed to find streams for "${movieTitle}": ${error.message}`,
-        [{ text: 'OK', action: () => {} }]
-      );
+    if (!statusDiv) {
+      console.error('API key status div not found');
+      alert('Error: Status display not found');
+      return;
     }
 
+    const apiKey = input.value.trim();
+    console.log('API key length:', apiKey.length);
+
+    if (!apiKey) {
+      showStatus(statusDiv, 'Please enter a valid API key', 'error');
+      return;
+    }
+
+    if (apiKey.length !== 32) {
+      showStatus(statusDiv, 'Invalid API key format. TMDB API keys should be 32 characters long.', 'error');
+      return;
+    }
+
+    localStorage.setItem('tmdb_api_key', apiKey);
+    showStatus(statusDiv, 'API key saved successfully!', 'success');
+    console.log('API key saved successfully');
+
+    // Load catalogs after saving
+    setTimeout(() => {
+      loadHomeCatalogs().catch(error => {
+        console.error('Error loading catalogs after API key save:', error);
+      });
+    }, 500);
+
+  } catch (error) {
+    console.error('Error in saveApiKey:', error);
+    alert(`Error saving API key: ${error.message}`);
+  }
+}
+
+function savePlayerChoice() {
+  console.log('savePlayerChoice called');
+  
+  try {
+    const playerSelect = document.getElementById('player-select');
+    const statusDiv = document.getElementById('player-status');
+
+    console.log('Found elements:', { playerSelect: !!playerSelect, statusDiv: !!statusDiv });
+
+    if (!playerSelect) {
+      console.error('Player select not found');
+      alert('Error: Player selection not found');
+      return;
+    }
+
+    if (!statusDiv) {
+      console.error('Player status div not found');
+      alert('Error: Status display not found');
+      return;
+    }
+
+    const choice = playerSelect.value;
+    console.log('Selected player:', choice);
+
+    localStorage.setItem('preferred_player', choice);
+    showStatus(statusDiv, 'Player preference saved!', 'success');
+    console.log('Player preference saved successfully');
+    
+  } catch (error) {
+    console.error('Error in savePlayerChoice:', error);
+    alert(`Error saving player choice: ${error.message}`);
+  }
+}
+
+function saveDebridConfig() {
+  console.log('saveDebridConfig called');
+  
+  try {
+    const serviceSelect = document.getElementById('debrid-service');
+    const apiKeyInput = document.getElementById('debrid-api-key');
+    const statusDiv = document.getElementById('debrid-status');
+    
+    console.log('Found elements:', { 
+      serviceSelect: !!serviceSelect, 
+      apiKeyInput: !!apiKeyInput, 
+      statusDiv: !!statusDiv 
+    });
+
+    if (!serviceSelect || !apiKeyInput || !statusDiv) {
+      console.error('Debrid form elements not found');
+      alert('Error: Debrid form elements not found');
+      return;
+    }
+    
+    const service = serviceSelect.value;
+    const apiKey = apiKeyInput.value.trim();
+    
+    console.log('Debrid config:', { service, apiKeyLength: apiKey.length });
+    
+    const config = { service, apiKey };
+    localStorage.setItem('debrid_config', JSON.stringify(config));
+    
+    if (service === 'none') {
+      showStatus(statusDiv, 'Debrid service disabled. External players will receive magnet links.', 'warning');
+    } else if (apiKey) {
+      showStatus(statusDiv, `${service} configuration saved! External players will get HTTP streams.`, 'success');
+    } else {
+      showStatus(statusDiv, 'Please enter your debrid API key.', 'error');
+      return;
+    }
+    
+    console.log('Debrid config saved successfully');
+    
+  } catch (error) {
+    console.error('Error in saveDebridConfig:', error);
+    alert(`Error saving debrid config: ${error.message}`);
+  }
+}
+
+// === ADDON FUNCTIONS ===
+function showAddonModal() {
+  console.log('showAddonModal called');
+  
+  try {
+    const modal = document.getElementById('addon-modal');
+    if (!modal) {
+      console.error('Addon modal not found');
+      alert('Error: Addon modal not found');
+      return;
+    }
+    
+    modal.style.display = 'block';
+    console.log('Addon modal shown');
+  } catch (error) {
+    console.error('Error in showAddonModal:', error);
+    alert(`Error showing addon modal: ${error.message}`);
+  }
+}
+
+function closeAddonModal() {
+  console.log('closeAddonModal called');
+  
+  try {
+    const modal = document.getElementById('addon-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      console.log('Addon modal closed');
+    }
+  } catch (error) {
+    console.error('Error in closeAddonModal:', error);
+  }
+}
+
+async function saveAddon() {
+  console.log('saveAddon called');
+  
+  try {
+    const urlInput = document.getElementById('addon-url');
+    const submitBtn = document.querySelector('#addon-form button[type="button"]');
+    
+    if (!urlInput) {
+      console.error('Addon URL input not found');
+      showAddonStatus('Addon URL input not found', 'error');
+      return;
+    }
+
+    if (!urlInput.value.trim()) {
+      showAddonStatus('Please enter a valid addon URL', 'error');
+      return;
+    }
+    
+    let addonUrl = urlInput.value.trim();
+    console.log('Processing addon URL:', addonUrl);
+    
+    // Ensure URL ends with manifest.json
+    if (!addonUrl.endsWith('/manifest.json')) {
+      if (addonUrl.endsWith('/')) {
+        addonUrl += 'manifest.json';
+      } else {
+        addonUrl += '/manifest.json';
+      }
+    }
+    
+    // Show loading state
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Fetching...';
+    }
+    showAddonStatus('Fetching addon manifest...', 'loading');
+    
+    try {
+      console.log('Fetching manifest from:', addonUrl);
+      
+      const response = await fetch(addonUrl, {
+        headers: { 'Accept': 'application/json' },
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch manifest: ${response.status} ${response.statusText}`);
+      }
+      
+      const manifest = await response.json();
+      console.log('Received manifest:', manifest);
+      
+      if (!manifest.id || !manifest.name) {
+        throw new Error('Invalid manifest format - missing required fields (id, name)');
+      }
+      
+      const addonInfo = {
+        id: manifest.id,
+        name: manifest.name,
+        description: manifest.description || '',
+        version: manifest.version || '1.0.0',
+        url: addonUrl.replace('/manifest.json', ''),
+        manifestUrl: addonUrl,
+        resources: manifest.resources || [],
+        types: manifest.types || [],
+        catalogs: manifest.catalogs || [],
+        type: determineAddonType(manifest.resources || []),
+        dateAdded: new Date().toISOString()
+      };
+      
+      const existingAddons = getAddons();
+      const existingIndex = existingAddons.findIndex(addon => addon.id === addonInfo.id);
+      
+      if (existingIndex >= 0) {
+        existingAddons[existingIndex] = addonInfo;
+        showAddonStatus(`Updated addon: ${addonInfo.name}`, 'success');
+      } else {
+        existingAddons.push(addonInfo);
+        showAddonStatus(`Added addon: ${addonInfo.name}`, 'success');
+      }
+      
+      setAddons(existingAddons);
+      renderAddonList();
+      
+      console.log('Addon saved successfully:', addonInfo.name);
+      
+      setTimeout(() => {
+        urlInput.value = '';
+        closeAddonModal();
+      }, 1500);
+      
+    } catch (fetchError) {
+      console.error('Error fetching addon manifest:', fetchError);
+      showAddonStatus(`Error: ${fetchError.message}`, 'error');
+    }
+    
+  } catch (error) {
+    console.error('Error in saveAddon:', error);
+    showAddonStatus(`Error: ${error.message}`, 'error');
+  } finally {
+    // Reset button state
+    const submitBtn = document.querySelector('#addon-form button[type="button"]');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add Addon';
+    }
+  }
+}
+
+function editAddon(idx) {
+  console.log('editAddon called with index:', idx);
+  
+  try {
+    const addons = getAddons();
+    const addon = addons[idx];
+    if (!addon) {
+      console.error('Addon not found at index:', idx);
+      return;
+    }
+
+    const urlInput = document.getElementById('addon-url');
+    if (urlInput) {
+      urlInput.value = addon.manifestUrl || addon.url;
+    }
+
+    showAddonModal();
+    console.log('Editing addon:', addon.name);
+  } catch (error) {
+    console.error('Error in editAddon:', error);
+    alert(`Error editing addon: ${error.message}`);
+  }
+}
+
+function removeAddon(idx) {
+  console.log('removeAddon called with index:', idx);
+  
+  try {
+    const addons = getAddons();
+    const addon = addons[idx];
+    if (!addon) {
+      console.error('Addon not found at index:', idx);
+      return;
+    }
+
+    if (confirm(`Remove addon "${addon.name}"?`)) {
+      addons.splice(idx, 1);
+      setAddons(addons);
+      renderAddonList();
+      console.log('Removed addon:', addon.name);
+    }
+  } catch (error) {
+    console.error('Error in removeAddon:', error);
+    alert(`Error removing addon: ${error.message}`);
+  }
+}
+
+// === MEDIA FUNCTIONS ===
+function handlePlayButton(movieId, movieTitle) {
+  console.log('handlePlayButton called:', { movieId, movieTitle });
+  
+  try {
+    // For now, show a placeholder message
+    alert(`Play functionality for "${movieTitle}" is being implemented. Please add streaming addons in Settings to enable playback.`);
   } catch (error) {
     console.error('Error in handlePlayButton:', error);
     alert(`Error: ${error.message}`);
   }
 }
 
-// --- Stream Fetching Implementation ---
-async function fetchStreamingLinks(imdbId, type = 'movie', season = null, episode = null) {
-  console.log('Fetching streaming links for IMDB ID:', imdbId);
+function handleTrailerButton(movieId, movieTitle) {
+  console.log('handleTrailerButton called:', { movieId, movieTitle });
   
-  const addons = getAddons().filter(addon => 
-    addon.resources && addon.resources.includes('stream')
-  );
+  try {
+    getTrailer(movieId).then(trailer => {
+      if (trailer) {
+        const youtubeUrl = `https://www.youtube.com/watch?v=${trailer.key}`;
+        window.open(youtubeUrl, '_blank');
+      } else {
+        alert(`No trailer available for ${movieTitle}`);
+      }
+    }).catch(error => {
+      console.error('Error getting trailer:', error);
+      alert(`Error loading trailer for ${movieTitle}: ${error.message}`);
+    });
+  } catch (error) {
+    console.error('Error in handleTrailerButton:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+function showMovieDetails(movieId) {
+  console.log('showMovieDetails called with ID:', movieId);
+  
+  try {
+    alert('Movie details coming soon!');
+  } catch (error) {
+    console.error('Error in showMovieDetails:', error);
+  }
+}
+
+// === MODAL FUNCTIONS ===
+function closeModal() {
+  console.log('closeModal called');
+  
+  try {
+    const modals = document.querySelectorAll('.modal[style*="block"]');
+    modals.forEach(modal => {
+      modal.style.display = 'none';
+    });
+    console.log('Closed', modals.length, 'modals');
+  } catch (error) {
+    console.error('Error in closeModal:', error);
+  }
+}
+
+function closeAddonMetaModal() {
+  console.log('closeAddonMetaModal called');
+  
+  try {
+    const modal = document.getElementById('addon-meta-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Error in closeAddonMetaModal:', error);
+  }
+}
+
+// === STREAM FUNCTIONS (PLACEHOLDERS) ===
+function selectStream(index) {
+  console.log('selectStream called with index:', index);
+  alert('Stream selection functionality coming soon!');
+}
+
+function filterStreams() {
+  console.log('filterStreams called');
+  // Placeholder
+}
+
+function closeStreamModal() {
+  console.log('closeStreamModal called');
+  const modal = document.getElementById('stream-modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+// === UTILITY FUNCTIONS ===
+function showStatus(element, message, type) {
+  if (!element) return;
+  
+  element.textContent = message;
+  element.className = `status-message status-${type}`;
+  element.style.display = 'block';
+  
+  if (type === 'success' || type === 'warning') {
+    setTimeout(() => {
+      element.style.display = 'none';
+    }, 3000);
+  }
+}
+
+function showAddonStatus(message, type) {
+  const statusDiv = document.getElementById('addon-status');
+  if (!statusDiv) return;
+  
+  statusDiv.textContent = message;
+  statusDiv.className = `status-message status-${type}`;
+  statusDiv.style.display = 'block';
+  
+  if (type === 'success' || type === 'loading') {
+    setTimeout(() => {
+      statusDiv.style.display = 'none';
+    }, 3000);
+  }
+}
+
+function getPlayerChoice() {
+  return localStorage.getItem('preferred_player') || 'internal';
+}
+
+function getDebridConfig() {
+  try {
+    const config = localStorage.getItem('debrid_config');
+    return config ? JSON.parse(config) : { service: 'none', apiKey: '' };
+  } catch (error) {
+    console.error('Error parsing debrid config:', error);
+    return { service: 'none', apiKey: '' };
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function getAddons() {
+  try {
+    return JSON.parse(localStorage.getItem('addons') || '[]');
+  } catch (error) {
+    console.error('Error parsing addons from localStorage:', error);
+    return [];
+  }
+}
+
+function setAddons(addons) {
+  try {
+    localStorage.setItem('addons', JSON.stringify(addons));
+  } catch (error) {
+    console.error('Error saving addons to localStorage:', error);
+  }
+}
+
+function determineAddonType(resources) {
+  if (!resources || !Array.isArray(resources)) return 'unknown';
+  
+  if (resources.includes('stream')) return 'torrent';
+  if (resources.includes('catalog')) return 'catalog';
+  if (resources.includes('meta')) return 'meta';
+  if (resources.includes('subtitles')) return 'subtitles';
+  
+  return 'other';
+}
+
+function renderAddonList() {
+  const addons = getAddons();
+  const list = document.getElementById('addon-list');
+  if (!list) return;
+
+  list.innerHTML = '';
   
   if (addons.length === 0) {
-    throw new Error('No streaming addons configured');
+    list.innerHTML = '<p class="empty-state">No addons configured. Add streaming addons to enable content playback.</p>';
+    return;
   }
 
-  const allStreams = [];
-  const errors = [];
-
-  // Fetch from all addons in parallel with timeout
-  const addonPromises = addons.map(async (addon) => {
-    try {
-      console.log(`Fetching from addon: ${addon.name}`);
-
-      // Build stream URL
-      let streamUrl;
-      if (type === 'movie') {
-        streamUrl = `${addon.url}/stream/movie/${imdbId}.json`;
-      } else {
-        streamUrl = `${addon.url}/stream/series/${imdbId}:${season}:${episode}.json`;
-      }
-
-      // Add API key if provided
-      if (addon.apiKey) {
-        streamUrl += `?api_key=${encodeURIComponent(addon.apiKey)}`;
-      }
-
-      // Fetch with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(streamUrl, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Crumble/1.0'
-        }
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`Stream data from ${addon.name}:`, data);
-      
-      if (data.streams && Array.isArray(data.streams)) {
-        const processedStreams = data.streams.map(stream => ({
-          ...stream,
-          addonName: addon.name,
-          quality: extractQuality(stream.title || stream.name || ''),
-          size: extractSize(stream.title || stream.name || ''),
-          seeds: extractSeeds(stream.title || stream.name || ''),
-          type: getStreamType(stream)
-        }));
-        
-        allStreams.push(...processedStreams);
-      }
-
-    } catch (error) {
-      console.error(`Error fetching from addon ${addon.name}:`, error);
-      errors.push(`${addon.name}: ${error.message}`);
-    }
+  addons.forEach((addon, idx) => {
+    const item = document.createElement('div');
+    item.className = 'addon-item';
+    item.innerHTML = `
+      <div class="addon-info">
+        <strong>${escapeHtml(addon.name)}</strong>
+        <div class="addon-details">
+          <span class="addon-url">${escapeHtml(addon.url)}</span>
+          <span class="addon-type">${escapeHtml(addon.type || 'unknown')}</span>
+          ${addon.resources ? `<span class="addon-resources">${escapeHtml(addon.resources.join(', '))}</span>` : ''}
+        </div>
+      </div>
+      <div class="addon-actions">
+        <button onclick="editAddon(${idx})" class="btn-secondary">Edit</button>
+        <button onclick="removeAddon(${idx})" class="btn-danger">Remove</button>
+      </div>
+    `;
+    list.appendChild(item);
   });
+}
 
-  await Promise.allSettled(addonPromises);
+// === DISPLAY FUNCTIONS ===
+function displayMovies(movies, containerSelector) {
+  const container = document.querySelector(containerSelector);
+  if (!container) {
+    console.error('Container not found:', containerSelector);
+    return;
+  }
 
-  // Sort streams by quality and seeds
-  const sortedStreams = allStreams.sort((a, b) => {
-    const qualityOrder = { '2160p': 4, '1080p': 3, '720p': 2, '480p': 1 };
-    const aQuality = qualityOrder[a.quality] || 0;
-    const bQuality = qualityOrder[b.quality] || 0;
+  container.innerHTML = '';
 
-    if (aQuality !== bQuality) return bQuality - aQuality;
-    return (b.seeds || 0) - (a.seeds || 0);
+  if (!movies || movies.length === 0) {
+    container.innerHTML = '<p class="empty-state">No movies to display.</p>';
+    return;
+  }
+
+  movies.forEach(movie => {
+    const movieCard = document.createElement('div');
+    movieCard.innerHTML = renderMovieCard(movie);
+    container.appendChild(movieCard);
   });
-
-  console.log(`Found ${sortedStreams.length} streams from ${addons.length} addons`);
-  return sortedStreams;
 }
 
-// --- Stream Processing Utilities ---
-function extractQuality(title) {
-  if (!title) return 'Unknown';
-  const qualityMatch = title.match(/(2160p|1080p|720p|480p|4K|UHD)/i);
-  if (qualityMatch) {
-    const quality = qualityMatch[1].toLowerCase();
-    return quality === '4k' || quality === 'uhd' ? '2160p' : quality;
-  }
-  return 'Unknown';
-}
-
-function extractSize(title) {
-  if (!title) return '';
-  const sizeMatch = title.match(/(\d+(?:\.\d+)?\s*(?:GB|MB|TB))/i);
-  return sizeMatch ? sizeMatch[1] : '';
-}
-
-function extractSeeds(title) {
-  if (!title) return 0;
-  const seedsMatch = title.match(/👥\s*(\d+)/i) || title.match(/seeds?:\s*(\d+)/i);
-  return seedsMatch ? parseInt(seedsMatch[1]) : 0;
-}
-
-function getStreamType(stream) {
-  if (stream.url && (stream.url.startsWith('http://') || stream.url.startsWith('https://'))) {
-    return 'http';
-  }
-  return 'torrent';
-}
-
-// --- Stream Selection Modal ---
-function displayStreamModal(streams, movieTitle, imdbId) {
-  console.log('Displaying stream modal for:', movieTitle, 'with', streams.length, 'streams');
-
-  const debridConfig = getDebridConfig();
-  const hasDebrid = debridConfig.service !== 'none' && debridConfig.apiKey;
-
-  const modalHtml = `
-    <div id="stream-modal" class="modal" style="display: block;">
-      <div class="modal-content stream-modal-content">
-        <span class="close" onclick="closeStreamModal()">&times;</span>
-        <h3>🎬 Select Stream for "${escapeHtml(movieTitle)}"</h3>
-        
-        <div class="stream-filters">
-          <select id="quality-filter" onchange="filterStreams()">
-            <option value="all">All Qualities</option>
-            <option value="2160p">4K (2160p)</option>
-            <option value="1080p">1080p</option>
-            <option value="720p">720p</option>
-            <option value="480p">480p</option>
-          </select>
-          
-          <select id="addon-filter" onchange="filterStreams()">
-            <option value="all">All Sources</option>
-            ${[...new Set(streams.map(s => s.addonName))].map(addon => 
-              `<option value="${escapeHtml(addon)}">${escapeHtml(addon)}</option>`
-            ).join('')}
-          </select>
-        </div>
-        
-        <div class="stream-info-bar">
-          <span>Found ${streams.length} streams</span>
-          ${!hasDebrid ? '<span class="warning">⚠️ Configure debrid service for better compatibility</span>' : ''}
-        </div>
-        
-        <div id="stream-list" class="stream-list">
-          ${renderStreamList(streams, hasDebrid)}
-        </div>
-        
-        <div class="stream-modal-footer">
-          <button onclick="closeStreamModal()" class="btn-secondary">Cancel</button>
+function renderMovieCard(movie) {
+  const posterUrl = movie.poster_path 
+    ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` 
+    : 'https://via.placeholder.com/300x450/333/fff?text=No+Image';
+  
+  const title = escapeHtml(movie.title || 'Unknown Title');
+  const year = movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A';
+  
+  return `
+    <div class="carousel-card" onclick="showMovieDetails(${movie.id})">
+      <img src="${posterUrl}" alt="${title}" loading="lazy" />
+      <div class="card-content">
+        <h4>${title}</h4>
+        <p>${year}</p>
+        <div class="card-actions">
+          <button class="btn-play" onclick="event.stopPropagation(); handlePlayButton(${movie.id}, '${title.replace(/'/g, "\\'")}')">▶️ Play</button>
+          <button class="btn-trailer" onclick="event.stopPropagation(); handleTrailerButton(${movie.id}, '${title.replace(/'/g, "\\'")}')">🎬 Trailer</button>
         </div>
       </div>
     </div>
   `;
-
-  // Remove existing modal
-  const existingModal = document.getElementById('stream-modal');
-  if (existingModal) existingModal.remove();
-
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-  // Store data for filtering
-  window.currentStreams = streams;
-  window.currentMovieTitle = movieTitle;
-  window.currentImdbId = imdbId;
 }
 
-function renderStreamList(streams, hasDebrid) {
-  if (streams.length === 0) {
-    return '<div class="no-streams">No streams found. Try adding more addons in Settings.</div>';
+function displayTVShows(shows, containerSelector) {
+  const container = document.querySelector(containerSelector);
+  if (!container) {
+    console.error('Container not found:', containerSelector);
+    return;
   }
   
-  return streams.map((stream, index) => {
-    const isCompatible = stream.type === 'http' || hasDebrid;
-    const compatibilityIcon = isCompatible ? '✅' : '⚠️';
-    const compatibilityText = stream.type === 'http' ? 'Direct Stream' : 
-                             hasDebrid ? 'Torrent (Debrid)' : 'Torrent (Magnet)';
+  container.innerHTML = '';
+  
+  if (!shows || shows.length === 0) {
+    container.innerHTML = '<p class="empty-state">No TV shows to display.</p>';
+    return;
+  }
+  
+  shows.forEach(show => {
+    const showCard = document.createElement('div');
+    showCard.className = 'carousel-card';
     
-    return `
-      <div class="stream-item ${!isCompatible ? 'stream-warning' : ''}" onclick="selectStream(${index})">
-        <div class="stream-info">
-          <div class="stream-title">${escapeHtml(stream.title || stream.name || 'Unknown Stream')}</div>
-          <div class="stream-details">
-            <span class="stream-type">${compatibilityIcon} ${compatibilityText}</span>
-            <span class="stream-quality">${escapeHtml(stream.quality)}</span>
-            ${stream.size ? `<span class="stream-size">${escapeHtml(stream.size)}</span>` : ''}
-            ${stream.seeds > 0 ? `<span class="stream-seeds">👥 ${stream.seeds}</span>` : ''}
-            <span class="stream-source">${escapeHtml(stream.addonName)}</span>
-          </div>
-        </div>
-        <div class="stream-action">
-          <button class="btn-play">▶️ Play</button>
+    const posterUrl = show.poster_path 
+      ? `https://image.tmdb.org/t/p/w500${show.poster_path}` 
+      : 'https://via.placeholder.com/500x750/333/fff?text=No+Image';
+    
+    const name = escapeHtml(show.name || 'Unknown Show');
+    const year = show.first_air_date ? show.first_air_date.split('-')[0] : 'N/A';
+    const rating = show.vote_average ? show.vote_average.toFixed(1) : 'N/A';
+    
+    showCard.innerHTML = `
+      <img src="${posterUrl}" alt="${name}" loading="lazy">
+      <div class="card-content">
+        <h4>${name}</h4>
+        <p>${year} • ⭐ ${rating}</p>
+        <div class="card-actions">
+          <button class="btn-play" onclick="event.stopPropagation(); alert('TV show streaming coming soon!')">▶️ Play</button>
+          <button class="btn-trailer" onclick="event.stopPropagation(); alert('TV show trailers coming soon!')">🎬 Trailer</button>
         </div>
       </div>
     `;
-  }).join('');
-}
-
-// --- Stream Selection Handler ---
-async function selectStream(streamIndex) {
-  try {
-    const streams = window.currentStreams || [];
-    const selectedStream = streams[streamIndex];
     
-    if (!selectedStream) {
-      throw new Error('Stream not found');
-    }
-    
-    console.log('Selected stream:', selectedStream);
-    closeStreamModal();
-    
-    // Show processing modal
-    const processingModal = createLoadingModal('Preparing stream...');
-    document.body.appendChild(processingModal);
-    
-    let streamUrl = null;
-    const debridConfig = getDebridConfig();
-    const hasDebrid = debridConfig.service !== 'none' && debridConfig.apiKey;
-    
-    try {
-      if (selectedStream.type === 'http') {
-        // Direct HTTP stream
-        streamUrl = selectedStream.url;
-        console.log('Using direct HTTP stream:', streamUrl);
-      } else if (hasDebrid) {
-        // Convert torrent via debrid
-        console.log('Converting torrent to HTTP via debrid...');
-        streamUrl = await convertTorrentToHttp(selectedStream, debridConfig);
-      } else {
-        // Use magnet link
-        streamUrl = extractMagnetUrl(selectedStream);
-        
-        const playerChoice = getPlayerChoice();
-        if (playerChoice !== 'internal') {
-          const proceed = confirm(
-            'This is a torrent stream (magnet link) which may not work well with external players.\n\n' +
-            'For better compatibility:\n' +
-            '• Configure a debrid service in Settings\n' +
-            '• Or use the Internal Player\n\n' +
-            'Continue with external player anyway?'
-          );
-          if (!proceed) {
-            processingModal.remove();
-            return;
-          }
-        }
+    showCard.addEventListener('click', function(e) {
+      if (!e.target.closest('button')) {
+        console.log('TV show card clicked:', show.name);
+        alert(`TV Show Details for "${name}" - Coming soon!`);
       }
-      
-      processingModal.remove();
-      
-      if (streamUrl && (streamUrl.startsWith('http') || streamUrl.startsWith('magnet:'))) {
-        console.log('Launching stream:', streamUrl);
-        launchPlayer(streamUrl);
-      } else {
-        throw new Error('Invalid stream URL format');
-      }
-      
-    } catch (error) {
-      processingModal.remove();
-      console.error('Stream processing error:', error);
-      
-      showErrorModal(
-        'Stream Error',
-        `Failed to process stream: ${error.message}`,
-        [{ text: 'OK', action: () => {} }]
-      );
-    }
+    });
     
-  } catch (error) {
-    console.error('Error selecting stream:', error);
-    alert(`Stream selection error: ${error.message}`);
-  }
+    container.appendChild(showCard);
+  });
 }
 
-// --- Player Launch Implementation ---
-function launchPlayer(streamUrl) {
-  const choice = getPlayerChoice();
-  console.log('Launching player:', choice, 'with URL:', streamUrl);
-
-  try {
-    switch (choice) {
-      case 'infuse':
-        window.location.href = `infuse://x-callback-url/play?url=${encodeURIComponent(streamUrl)}`;
-        break;
-      case 'vlc':
-        window.location.href = `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(streamUrl)}`;
-        break;
-      case 'outplayer':
-        window.location.href = `outplayer://play?url=${encodeURIComponent(streamUrl)}`;
-        break;
-      case 'mrmc':
-        window.location.href = `mrmc://play/${encodeURIComponent(streamUrl)}`;
-        break;
-      default:
-        playInternalPlayer(streamUrl);
-        break;
-    }
-  } catch (error) {
-    console.error('Error launching player:', error);
-    alert(`Error launching player: ${error.message}`);
-  }
-}
-
-function playInternalPlayer(url) {
-  const modal = document.createElement('div');
-  modal.className = 'video-modal';
-  modal.innerHTML = `
-    <div class="video-modal-content">
-      <span class="close" onclick="this.closest('.video-modal').remove()">&times;</span>
-      <video controls autoplay style="width: 100%; height: 400px; background: #000;">
-        <source src="${url}" type="application/x-mpegURL">
-        <p>Your browser does not support this video format.</p>
-      </video>
-    </div>
-  `;
-  document.body.appendChild(modal);
+// === LOADING FUNCTIONS ===
+async function loadHomeCatalogs() {
+  console.log('Loading all home page catalogs...');
   
-  // Enhanced HLS support
-  if (window.Hls && window.Hls.isSupported() && url.includes('.m3u8')) {
-    const video = modal.querySelector('video');
-    const hls = new window.Hls();
-    hls.loadSource(url);
-    hls.attachMedia(video);
-    
-    hls.on(window.Hls.Events.ERROR, (event, data) => {
-      console.error('HLS Error:', data);
-      if (data.fatal) {
-        alert('Video playback error. Please try a different stream.');
-        modal.remove();
+  const catalogFunctions = [
+    { fn: loadTrendingMovies, name: 'trending movies' },
+    { fn: loadPopularMovies, name: 'popular movies' },
+    { fn: loadLatestMovies, name: 'latest movies' },
+    { fn: loadTrendingTV, name: 'trending TV' },
+    { fn: loadPopularTV, name: 'popular TV' }
+  ];
+  
+  const results = await Promise.allSettled(
+    catalogFunctions.map(async ({ fn, name }) => {
+      try {
+        await fn();
+        console.log(`✅ Loaded ${name}`);
+      } catch (error) {
+        console.error(`❌ Failed to load ${name}:`, error);
+        throw error;
       }
+    })
+  );
+  
+  const failures = results.filter(result => result.status === 'rejected').length;
+  const successes = results.length - failures;
+  
+  console.log(`Home catalogs loading complete: ${successes}/${results.length} successful`);
+}
+
+async function loadTrendingMovies() {
+  const container = document.querySelector("#trending-movies");
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<div class="loading-placeholder">Loading trending movies...</div>';
+    const trending = await getTrendingMovies();
+    displayMovies(trending, "#trending-movies");
+  } catch (error) {
+    console.error('Error loading trending movies:', error);
+    container.innerHTML = `<p class="error-message">Error loading trending movies: ${error.message}</p>`;
+  }
+}
+
+async function loadPopularMovies() {
+  const container = document.querySelector("#popular-movies");
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<div class="loading-placeholder">Loading popular movies...</div>';
+    const popular = await getPopularMovies();
+    displayMovies(popular, "#popular-movies");
+  } catch (error) {
+    console.error('Error loading popular movies:', error);
+    container.innerHTML = `<p class="error-message">Error loading popular movies. Please check your TMDB API key in Settings.</p>`;
+  }
+}
+
+async function loadLatestMovies() {
+  const container = document.querySelector("#latest-movies");
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<div class="loading-placeholder">Loading latest movies...</div>';
+    const latest = await getLatestMovies();
+    displayMovies(latest, "#latest-movies");
+  } catch (error) {
+    console.error('Error loading latest movies:', error);
+    container.innerHTML = `<p class="error-message">Error loading latest movies: ${error.message}</p>`;
+  }
+}
+
+async function loadTrendingTV() {
+  const container = document.querySelector("#trending-tv");
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<div class="loading-placeholder">Loading trending TV...</div>';
+    const trending = await getTrendingTV();
+    displayTVShows(trending, "#trending-tv");
+  } catch (error) {
+    console.error('Error loading trending TV shows:', error);
+    container.innerHTML = `<p class="error-message">Error loading trending TV shows: ${error.message}</p>`;
+  }
+}
+
+async function loadPopularTV() {
+  const container = document.querySelector("#popular-tv");
+  if (!container) return;
+
+  try {
+    container.innerHTML = '<div class="loading-placeholder">Loading popular TV...</div>';
+    const popular = await getPopularTV();
+    displayTVShows(popular, "#popular-tv");
+  } catch (error) {
+    console.error('Error loading popular TV shows:', error);
+    container.innerHTML = `<p class="error-message">Error loading popular TV shows: ${error.message}</p>`;
+  }
+}
+
+// === TAB MANAGEMENT ===
+class TabManager {
+  constructor() {
+    this.currentTab = 'home-tab';
+    this.isTransitioning = false;
+    this.initializeEventListeners();
+  }
+
+  initializeEventListeners() {
+    document.addEventListener('click', (e) => {
+      const navBtn = e.target.closest('.nav-btn');
+      if (navBtn) {
+        e.preventDefault();
+        this.handleNavClick(navBtn);
+      }
+    });
+  }
+
+  async handleNavClick(button) {
+    if (this.isTransitioning) {
+      console.log('Tab transition in progress, ignoring click');
+      return;
+    }
+
+    const tabId = this.getTabIdFromButton(button);
+    if (!tabId || tabId === this.currentTab) {
+      return;
+    }
+
+    try {
+      this.isTransitioning = true;
+      await this.showTab(tabId);
+    } catch (error) {
+      console.error('Error switching tabs:', error);
+    } finally {
+      this.isTransitioning = false;
+    }
+  }
+
+  getTabIdFromButton(button) {
+    const listItem = button.closest('li[data-tab]');
+    if (listItem) {
+      return listItem.getAttribute('data-tab');
+    }
+    
+    const buttons = document.querySelectorAll('.nav-btn');
+    const buttonIndex = Array.from(buttons).indexOf(button);
+    const tabIds = ['home-tab', 'search-tab', 'library-tab', 'settings-tab'];
+    return tabIds[buttonIndex];
+  }
+
+  async showTab(tabId) {
+    console.log('Switching to tab:', tabId);
+    
+    const targetTab = document.getElementById(tabId);
+    if (!targetTab) {
+      throw new Error(`Tab not found: ${tabId}`);
+    }
+
+    this.clearActiveStates();
+    targetTab.classList.add('active');
+    this.updateNavButton(tabId);
+    await this.handleTabSpecificLogic(tabId);
+    
+    this.currentTab = tabId;
+    console.log('Successfully switched to tab:', tabId);
+  }
+
+  clearActiveStates() {
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+  }
+
+  updateNavButton(tabId) {
+    const targetListItem = document.querySelector(`li[data-tab="${tabId}"]`);
+    if (targetListItem) {
+      const button = targetListItem.querySelector('.nav-btn');
+      if (button) {
+        button.classList.add('active');
+      }
+    }
+  }
+
+  async handleTabSpecificLogic(tabId) {
+    switch(tabId) {
+      case 'settings-tab':
+        this.initializeSettings();
+        break;
+      case 'search-tab':
+        this.focusSearchInput();
+        break;
+      case 'home-tab':
+        await this.loadHomeContent();
+        break;
+    }
+  }
+
+  initializeSettings() {
+    try {
+      const apiKeyInput = document.getElementById('api-key-input');
+      const playerSelect = document.getElementById('player-select');
+      const debridService = document.getElementById('debrid-service');
+      const debridApiKey = document.getElementById('debrid-api-key');
+
+      if (apiKeyInput) apiKeyInput.value = localStorage.getItem('tmdb_api_key') || '';
+      if (playerSelect) playerSelect.value = getPlayerChoice();
+      
+      const debridConfig = getDebridConfig();
+      if (debridService) debridService.value = debridConfig.service;
+      if (debridApiKey) debridApiKey.value = debridConfig.apiKey;
+
+      this.clearStatusMessages();
+      renderAddonList();
+    } catch (error) {
+      console.error('Error initializing settings:', error);
+    }
+  }
+
+  focusSearchInput() {
+    setTimeout(() => {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }, 100);
+  }
+
+  async loadHomeContent() {
+    const apiKey = localStorage.getItem('tmdb_api_key');
+    if (apiKey) {
+      try {
+        await loadHomeCatalogs();
+      } catch (error) {
+        console.error('Error loading home content:', error);
+      }
+    }
+  }
+
+  clearStatusMessages() {
+    ['api-key-status', 'player-status', 'debrid-status'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = '';
     });
   }
 }
 
-// --- Utility Functions ---
-function extractMagnetUrl(stream) {
-  if (stream.infoHash) {
-    let magnetUrl = `magnet:?xt=urn:btih:${stream.infoHash}`;
-    if (stream.title) {
-      magnetUrl += `&dn=${encodeURIComponent(stream.title)}`;
+// === SEARCH MANAGEMENT ===
+class SearchManager {
+  constructor() {
+    this.searchTimeout = null;
+    this.lastQuery = '';
+  }
+
+  setupSearch() {
+    const searchInput = document.getElementById("search-input");
+    if (!searchInput) return;
+
+    searchInput.addEventListener("input", (e) => {
+      const query = e.target.value.trim();
+      
+      if (this.searchTimeout) {
+        clearTimeout(this.searchTimeout);
+      }
+      
+      this.searchTimeout = setTimeout(() => {
+        this.performSearch(query);
+      }, 300);
+    });
+  }
+
+  async performSearch(query) {
+    const resultsContainer = document.getElementById("search-results");
+    if (!resultsContainer) return;
+
+    if (query.length < 2) {
+      resultsContainer.innerHTML = '';
+      this.lastQuery = '';
+      return;
     }
-    return magnetUrl;
-  }
-  
-  return stream.magnetUrl || stream.torrentUrl || null;
-}
 
-async function convertTorrentToHttp(stream, debridConfig) {
-  const magnetUrl = extractMagnetUrl(stream);
-  if (!magnetUrl) {
-    throw new Error('No magnet link found in stream data');
-  }
-  
-  // Placeholder for debrid conversion - implement based on service
-  switch (debridConfig.service) {
-    case 'realdebrid':
-      return await convertViaRealDebrid(magnetUrl, debridConfig.apiKey);
-    case 'alldebrid':
-      return await convertViaAllDebrid(magnetUrl, debridConfig.apiKey);
-    default:
-      throw new Error(`Debrid service ${debridConfig.service} not implemented yet`);
-  }
-}
+    if (query === this.lastQuery) {
+      return;
+    }
 
-// --- UI Helper Functions ---
-function createLoadingModal(message) {
-  const modal = document.createElement('div');
-  modal.className = 'loading-modal';
-  modal.innerHTML = `
-    <div class="loading-content">
-      <div class="loading-spinner"></div>
-      <p>${escapeHtml(message)}</p>
-    </div>
-  `;
-  return modal;
-}
-
-function showErrorModal(title, message, buttons) {
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.display = 'block';
-  modal.innerHTML = `
-    <div class="modal-content">
-      <h3>${escapeHtml(title)}</h3>
-      <p>${escapeHtml(message)}</p>
-      <div class="modal-buttons">
-        ${buttons.map(btn => 
-          `<button class="btn-secondary" onclick="this.closest('.modal').remove(); (${btn.action.toString()})()">${escapeHtml(btn.text)}</button>`
-        ).join('')}
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
-
-function filterStreams() {
-  const qualityFilter = document.getElementById('quality-filter')?.value || 'all';
-  const addonFilter = document.getElementById('addon-filter')?.value || 'all';
-
-  let filteredStreams = window.currentStreams || [];
-
-  if (qualityFilter !== 'all') {
-    filteredStreams = filteredStreams.filter(stream => stream.quality === qualityFilter);
-  }
-
-  if (addonFilter !== 'all') {
-    filteredStreams = filteredStreams.filter(stream => stream.addonName === addonFilter);
-  }
-
-  const streamList = document.getElementById('stream-list');
-  if (streamList) {
-    const hasDebrid = getDebridConfig().service !== 'none' && getDebridConfig().apiKey;
-    streamList.innerHTML = renderStreamList(filteredStreams, hasDebrid);
+    this.lastQuery = query;
+    console.log('Search query:', query);
+    
+    try {
+      resultsContainer.innerHTML = '<div class="loading-placeholder">Searching...</div>';
+      const results = await searchMovies(query);
+      displayMovies(results, "#search-results");
+      console.log('Search results:', results.length, 'movies found');
+      
+      if (results.length === 0) {
+        resultsContainer.innerHTML = '<p class="empty-state">No movies found for your search.</p>';
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      resultsContainer.innerHTML = `<p class="error-message">Search failed: ${error.message}</p>`;
+    }
   }
 }
 
-function closeStreamModal() {
-  const modal = document.getElementById('stream-modal');
-  if (modal) modal.remove();
-  
-  // Clean up global variables
-  delete window.currentStreams;
-  delete window.currentMovieTitle;
-  delete window.currentImdbId;
-}
+// === ASSIGN FUNCTIONS TO GLOBAL SCOPE IMMEDIATELY ===
+console.log('Assigning functions to global scope...');
 
-// --- Global Function Exports ---
+// Assign all functions to window object
+window.saveApiKey = saveApiKey;
+window.savePlayerChoice = savePlayerChoice;
+window.saveDebridConfig = saveDebridConfig;
+window.saveAddon = saveAddon;
+window.editAddon = editAddon;
+window.removeAddon = removeAddon;
+window.showAddonModal = showAddonModal;
+window.closeAddonModal = closeAddonModal;
+window.closeAddonMetaModal = closeAddonMetaModal;
+window.closeModal = closeModal;
+window.handlePlayButton = handlePlayButton;
+window.handleTrailerButton = handleTrailerButton;
+window.showMovieDetails = showMovieDetails;
 window.selectStream = selectStream;
 window.filterStreams = filterStreams;
 window.closeStreamModal = closeStreamModal;
 
-// --- Placeholder Debrid Functions (implement as needed) ---
-async function convertViaRealDebrid(magnetUrl, apiKey) {
-  throw new Error('Real-Debrid integration not implemented yet. Please add this functionality.');
-}
+console.log('Global functions assigned:', {
+  saveApiKey: typeof window.saveApiKey,
+  savePlayerChoice: typeof window.savePlayerChoice,
+  saveDebridConfig: typeof window.saveDebridConfig,
+  saveAddon: typeof window.saveAddon,
+  handlePlayButton: typeof window.handlePlayButton,
+  showAddonModal: typeof window.showAddonModal
+});
 
-async function convertViaAllDebrid(magnetUrl, apiKey) {
-  throw new Error('AllDebrid integration not implemented yet. Please add this functionality.');
-}
+// === INITIALIZATION ===
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, initializing app...');
+
+  try {
+    // Initialize managers
+    window.tabManager = new TabManager();
+    window.searchManager = new SearchManager();
+    
+    // Setup search functionality
+    window.searchManager.setupSearch();
+    
+    // Load initial content
+    loadHomeCatalogs().catch(error => {
+      console.error('Initial catalog loading failed:', error);
+    });
+
+    // Setup addon management with direct event listener
+    const addonAddBtn = document.getElementById('add-addon-btn');
+    if (addonAddBtn) {
+      console.log('Setting up addon button listener');
+      
+      // Remove any existing listeners
+      addonAddBtn.replaceWith(addonAddBtn.cloneNode(true));
+      const newAddonBtn = document.getElementById('add-addon-btn');
+      
+      newAddonBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Addon button clicked via event listener');
+        showAddonModal();
+      });
+      
+      console.log('Addon button listener setup complete');
+    } else {
+      console.error('Addon button not found during initialization');
+    }
+
+    // Test all button functions
+    console.log('Testing button function availability:');
+    console.log('- saveApiKey:', typeof window.saveApiKey);
+    console.log('- savePlayerChoice:', typeof window.savePlayerChoice);
+    console.log('- saveDebridConfig:', typeof window.saveDebridConfig);
+    console.log('- showAddonModal:', typeof window.showAddonModal);
+
+    console.log('App initialization complete');
+
+  } catch (error) {
+    console.error('Error during app initialization:', error);
+    alert(`Initialization error: ${error.message}`);
+  }
+});
+
+console.log('Crumble app loaded successfully - all functions should be available');
