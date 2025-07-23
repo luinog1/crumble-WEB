@@ -1,153 +1,44 @@
 // Complete Crumble App - Fixed Button Responsiveness Issues
 
-// === GLOBAL FUNCTION DECLARATIONS (MUST BE FIRST) ===
+// === INITIALIZATION ===
 console.log('Loading Crumble app...');
-
-// Declare all functions in global scope immediately
-window.saveApiKey = null;
-window.savePlayerChoice = null;
-window.saveDebridConfig = null;
-window.saveAddon = null;
-window.editAddon = null;
-window.removeAddon = null;
-window.showAddonModal = null;
-window.closeAddonModal = null;
-window.closeAddonMetaModal = null;
-window.closeModal = null;
-window.handlePlayButton = null;
-window.handleTrailerButton = null;
-window.showMovieDetails = null;
-window.selectStream = null;
-window.filterStreams = null;
-window.closeStreamModal = null;
-
-// === TMDB API FUNCTIONS ===
-const BASE_URL = "https://api.themoviedb.org/3";
-
-function getApiKey() {
-  return localStorage.getItem('tmdb_api_key') || '';
-}
-
-async function makeSecureTMDBRequest(endpoint, params = {}) {
-  try {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      throw new Error("No TMDB API key configured. Please add your API key in Settings.");
-    }
-    
-    const url = new URL(`${BASE_URL}${endpoint}`);
-    url.searchParams.append('api_key', apiKey);
-    url.searchParams.append('language', 'en-US');
-    
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, value);
-    });
-
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error(`TMDB API error for ${endpoint}:`, error);
-    throw error;
-  }
-}
-
-async function getPopularMovies() {
-  const data = await makeSecureTMDBRequest('/movie/popular', { page: '1' });
-  return data.results || [];
-}
-
-async function getTrendingMovies() {
-  const data = await makeSecureTMDBRequest('/trending/movie/day');
-  return data.results || [];
-}
-
-async function getLatestMovies() {
-  const data = await makeSecureTMDBRequest('/movie/now_playing', { page: '1' });
-  return data.results || [];
-}
-
-async function getTrendingTV() {
-  const data = await makeSecureTMDBRequest('/trending/tv/day');
-  return data.results || [];
-}
-
-async function getPopularTV() {
-  const data = await makeSecureTMDBRequest('/tv/popular', { page: '1' });
-  return data.results || [];
-}
-
-async function searchMovies(query) {
-  if (!query || query.trim().length < 2) return [];
-  const data = await makeSecureTMDBRequest('/search/movie', { query: query.trim() });
-  return data.results || [];
-}
-
-async function getTrailer(movieId) {
-  try {
-    const data = await makeSecureTMDBRequest(`/movie/${movieId}/videos`);
-    const trailer = data.results.find(v => v.type === "Trailer" && v.site === "YouTube");
-    return trailer || null;
-  } catch (error) {
-    console.error('Error fetching trailer:', error);
-    return null;
-  }
-}
-
-async function getMovieDetails(movieId) {
-  return await makeSecureTMDBRequest(`/movie/${movieId}`);
-}
 
 // === SETTINGS FUNCTIONS ===
 function saveApiKey() {
   console.log('saveApiKey called');
-  
   try {
     const input = document.getElementById('api-key-input');
     const statusDiv = document.getElementById('api-key-status');
-
     console.log('Found elements:', { input: !!input, statusDiv: !!statusDiv });
-
     if (!input) {
       console.error('API key input not found');
       alert('Error: API key input field not found');
       return;
     }
-
     if (!statusDiv) {
       console.error('API key status div not found');
       alert('Error: Status display not found');
       return;
     }
-
     const apiKey = input.value.trim();
     console.log('API key length:', apiKey.length);
-
     if (!apiKey) {
       showStatus(statusDiv, 'Please enter a valid API key', 'error');
       return;
     }
-
     if (apiKey.length !== 32) {
       showStatus(statusDiv, 'Invalid API key format. TMDB API keys should be 32 characters long.', 'error');
       return;
     }
-
     localStorage.setItem('tmdb_api_key', apiKey);
     showStatus(statusDiv, 'API key saved successfully!', 'success');
     console.log('API key saved successfully');
-
     // Load catalogs after saving
     setTimeout(() => {
       loadHomeCatalogs().catch(error => {
         console.error('Error loading catalogs after API key save:', error);
       });
     }, 500);
-
   } catch (error) {
     console.error('Error in saveApiKey:', error);
     alert(`Error saving API key: ${error.message}`);
@@ -157,32 +48,25 @@ window.saveApiKey = saveApiKey;
 
 function savePlayerChoice() {
   console.log('savePlayerChoice called');
-  
   try {
     const playerSelect = document.getElementById('player-select');
     const statusDiv = document.getElementById('player-status');
-
     console.log('Found elements:', { playerSelect: !!playerSelect, statusDiv: !!statusDiv });
-
     if (!playerSelect) {
       console.error('Player select not found');
       alert('Error: Player selection not found');
       return;
     }
-
     if (!statusDiv) {
       console.error('Player status div not found');
       alert('Error: Status display not found');
       return;
     }
-
     const choice = playerSelect.value;
     console.log('Selected player:', choice);
-
     localStorage.setItem('preferred_player', choice);
     showStatus(statusDiv, 'Player preference saved!', 'success');
     console.log('Player preference saved successfully');
-    
   } catch (error) {
     console.error('Error in savePlayerChoice:', error);
     alert(`Error saving player choice: ${error.message}`);
@@ -192,32 +76,25 @@ window.savePlayerChoice = savePlayerChoice;
 
 function saveDebridConfig() {
   console.log('saveDebridConfig called');
-  
   try {
     const serviceSelect = document.getElementById('debrid-service');
     const apiKeyInput = document.getElementById('debrid-api-key');
     const statusDiv = document.getElementById('debrid-status');
-    
     console.log('Found elements:', { 
       serviceSelect: !!serviceSelect, 
       apiKeyInput: !!apiKeyInput, 
       statusDiv: !!statusDiv 
     });
-
     if (!serviceSelect || !apiKeyInput || !statusDiv) {
       console.error('Debrid form elements not found');
       alert('Error: Debrid form elements not found');
       return;
     }
-    
     const service = serviceSelect.value;
     const apiKey = apiKeyInput.value.trim();
-    
     console.log('Debrid config:', { service, apiKeyLength: apiKey.length });
-    
     const config = { service, apiKey };
     localStorage.setItem('debrid_config', JSON.stringify(config));
-    
     if (service === 'none') {
       showStatus(statusDiv, 'Debrid service disabled. External players will receive magnet links.', 'warning');
     } else if (apiKey) {
@@ -226,9 +103,7 @@ function saveDebridConfig() {
       showStatus(statusDiv, 'Please enter your debrid API key.', 'error');
       return;
     }
-    
     console.log('Debrid config saved successfully');
-    
   } catch (error) {
     console.error('Error in saveDebridConfig:', error);
     alert(`Error saving debrid config: ${error.message}`);
@@ -239,7 +114,6 @@ window.saveDebridConfig = saveDebridConfig;
 // === ADDON FUNCTIONS ===
 function showAddonModal() {
   console.log('showAddonModal called');
-  
   try {
     const modal = document.getElementById('addon-modal');
     if (!modal) {
@@ -247,7 +121,6 @@ function showAddonModal() {
       alert('Error: Addon modal not found');
       return;
     }
-    
     modal.style.display = 'block';
     console.log('Addon modal shown');
   } catch (error) {
@@ -259,7 +132,6 @@ window.showAddonModal = showAddonModal;
 
 function closeAddonModal() {
   console.log('closeAddonModal called');
-  
   try {
     const modal = document.getElementById('addon-modal');
     if (modal) {
@@ -274,25 +146,20 @@ window.closeAddonModal = closeAddonModal;
 
 async function saveAddon() {
   console.log('saveAddon called');
-  
   try {
     const urlInput = document.getElementById('addon-url');
     const submitBtn = document.querySelector('#addon-form button[type="button"]');
-    
     if (!urlInput) {
       console.error('Addon URL input not found');
       showAddonStatus('Addon URL input not found', 'error');
       return;
     }
-
     if (!urlInput.value.trim()) {
       showAddonStatus('Please enter a valid addon URL', 'error');
       return;
     }
-    
     let addonUrl = urlInput.value.trim();
     console.log('Processing addon URL:', addonUrl);
-    
     // Ensure URL ends with manifest.json
     if (!addonUrl.endsWith('/manifest.json')) {
       if (addonUrl.endsWith('/')) {
@@ -301,33 +168,26 @@ async function saveAddon() {
         addonUrl += '/manifest.json';
       }
     }
-    
     // Show loading state
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Fetching...';
     }
     showAddonStatus('Fetching addon manifest...', 'loading');
-    
     try {
       console.log('Fetching manifest from:', addonUrl);
-      
       const response = await fetch(addonUrl, {
         headers: { 'Accept': 'application/json' },
         method: 'GET'
       });
-      
       if (!response.ok) {
         throw new Error(`Failed to fetch manifest: ${response.status} ${response.statusText}`);
       }
-      
       const manifest = await response.json();
       console.log('Received manifest:', manifest);
-      
       if (!manifest.id || !manifest.name) {
         throw new Error('Invalid manifest format - missing required fields (id, name)');
       }
-      
       const addonInfo = {
         id: manifest.id,
         name: manifest.name,
@@ -341,10 +201,8 @@ async function saveAddon() {
         type: determineAddonType(manifest.resources || []),
         dateAdded: new Date().toISOString()
       };
-      
       const existingAddons = getAddons();
       const existingIndex = existingAddons.findIndex(addon => addon.id === addonInfo.id);
-      
       if (existingIndex >= 0) {
         existingAddons[existingIndex] = addonInfo;
         showAddonStatus(`Updated addon: ${addonInfo.name}`, 'success');
@@ -352,22 +210,17 @@ async function saveAddon() {
         existingAddons.push(addonInfo);
         showAddonStatus(`Added addon: ${addonInfo.name}`, 'success');
       }
-      
       setAddons(existingAddons);
       renderAddonList();
-      
       console.log('Addon saved successfully:', addonInfo.name);
-      
       setTimeout(() => {
         urlInput.value = '';
         closeAddonModal();
       }, 1500);
-      
     } catch (fetchError) {
       console.error('Error fetching addon manifest:', fetchError);
       showAddonStatus(`Error: ${fetchError.message}`, 'error');
     }
-    
   } catch (error) {
     console.error('Error in saveAddon:', error);
     showAddonStatus(`Error: ${error.message}`, 'error');
@@ -384,7 +237,6 @@ window.saveAddon = saveAddon;
 
 function editAddon(idx) {
   console.log('editAddon called with index:', idx);
-  
   try {
     const addons = getAddons();
     const addon = addons[idx];
@@ -392,12 +244,10 @@ function editAddon(idx) {
       console.error('Addon not found at index:', idx);
       return;
     }
-
     const urlInput = document.getElementById('addon-url');
     if (urlInput) {
       urlInput.value = addon.manifestUrl || addon.url;
     }
-
     showAddonModal();
     console.log('Editing addon:', addon.name);
   } catch (error) {
@@ -409,7 +259,6 @@ window.editAddon = editAddon;
 
 function removeAddon(idx) {
   console.log('removeAddon called with index:', idx);
-  
   try {
     const addons = getAddons();
     const addon = addons[idx];
@@ -417,12 +266,11 @@ function removeAddon(idx) {
       console.error('Addon not found at index:', idx);
       return;
     }
-
-    if (confirm(`Remove addon "${addon.name}"?`)) {
+    if (confirm(`Are you sure you want to remove ${addon.name}?`)) {
       addons.splice(idx, 1);
       setAddons(addons);
       renderAddonList();
-      console.log('Removed addon:', addon.name);
+      console.log('Addon removed:', addon.name);
     }
   } catch (error) {
     console.error('Error in removeAddon:', error);
@@ -464,12 +312,10 @@ window.handlePlayButton = handlePlayButton;
 
 function handleTrailerButton(movieId, movieTitle) {
   console.log('handleTrailerButton called:', { movieId, movieTitle });
-  
   try {
     getTrailer(movieId).then(trailer => {
       if (trailer) {
-        const youtubeUrl = `https://www.youtube.com/watch?v=${trailer.key}`;
-        window.open(youtubeUrl, '_blank');
+        window.open(`https://www.youtube.com/watch?v=${trailer.key}`, '_blank');
       } else {
         alert(`No trailer available for ${movieTitle}`);
       }
@@ -486,7 +332,6 @@ window.handleTrailerButton = handleTrailerButton;
 
 function showMovieDetails(movieId) {
   console.log('showMovieDetails called with ID:', movieId);
-  
   try {
     alert('Movie details coming soon!');
   } catch (error) {
@@ -498,7 +343,6 @@ window.showMovieDetails = showMovieDetails;
 // === MODAL FUNCTIONS ===
 function closeModal() {
   console.log('closeModal called');
-  
   try {
     const modals = document.querySelectorAll('.modal[style*="block"]');
     modals.forEach(modal => {
@@ -513,11 +357,11 @@ window.closeModal = closeModal;
 
 function closeAddonMetaModal() {
   console.log('closeAddonMetaModal called');
-  
   try {
     const modal = document.getElementById('addon-meta-modal');
     if (modal) {
       modal.style.display = 'none';
+      console.log('Addon meta modal closed');
     }
   } catch (error) {
     console.error('Error in closeAddonMetaModal:', error);
@@ -525,13 +369,7 @@ function closeAddonMetaModal() {
 }
 window.closeAddonMetaModal = closeAddonMetaModal;
 
-// === STREAM FUNCTIONS (PLACEHOLDERS) ===
-function filterStreams() {
-  console.log('filterStreams called');
-  // Placeholder
-}
-window.filterStreams = filterStreams;
-
+// === STREAM FUNCTIONS ===
 function showStreamModal(title, streams) {
   let modal = document.getElementById('stream-modal');
   if (!modal) {
@@ -594,13 +432,10 @@ window.selectStream = selectStream;
 
 // === UTILITY FUNCTIONS ===
 function showStatus(element, message, type) {
-  if (!element) return;
-  
   element.textContent = message;
   element.className = `status-message status-${type}`;
   element.style.display = 'block';
-  
-  if (type === 'success' || type === 'warning') {
+  if (type === 'success') {
     setTimeout(() => {
       element.style.display = 'none';
     }, 3000);
@@ -609,16 +444,8 @@ function showStatus(element, message, type) {
 
 function showAddonStatus(message, type) {
   const statusDiv = document.getElementById('addon-status');
-  if (!statusDiv) return;
-  
-  statusDiv.textContent = message;
-  statusDiv.className = `status-message status-${type}`;
-  statusDiv.style.display = 'block';
-  
-  if (type === 'success' || type === 'loading') {
-    setTimeout(() => {
-      statusDiv.style.display = 'none';
-    }, 3000);
+  if (statusDiv) {
+    showStatus(statusDiv, message, type);
   }
 }
 
@@ -628,10 +455,8 @@ function getPlayerChoice() {
 
 function getDebridConfig() {
   try {
-    const config = localStorage.getItem('debrid_config');
-    return config ? JSON.parse(config) : { service: 'none', apiKey: '' };
-  } catch (error) {
-    console.error('Error parsing debrid config:', error);
+    return JSON.parse(localStorage.getItem('debrid_config')) || { service: 'none', apiKey: '' };
+  } catch {
     return { service: 'none', apiKey: '' };
   }
 }
@@ -644,9 +469,8 @@ function escapeHtml(text) {
 
 function getAddons() {
   try {
-    return JSON.parse(localStorage.getItem('addons') || '[]');
-  } catch (error) {
-    console.error('Error parsing addons from localStorage:', error);
+    return JSON.parse(localStorage.getItem('addons')) || [];
+  } catch {
     return [];
   }
 }
@@ -655,18 +479,16 @@ function setAddons(addons) {
   try {
     localStorage.setItem('addons', JSON.stringify(addons));
   } catch (error) {
-    console.error('Error saving addons to localStorage:', error);
+    console.error('Error saving addons:', error);
   }
 }
 
 function determineAddonType(resources) {
   if (!resources || !Array.isArray(resources)) return 'unknown';
-  
   if (resources.includes('stream')) return 'torrent';
   if (resources.includes('catalog')) return 'catalog';
   if (resources.includes('meta')) return 'meta';
   if (resources.includes('subtitles')) return 'subtitles';
-  
   return 'other';
 }
 
@@ -674,14 +496,11 @@ function renderAddonList() {
   const addons = getAddons();
   const list = document.getElementById('addon-list');
   if (!list) return;
-
   list.innerHTML = '';
-  
   if (addons.length === 0) {
     list.innerHTML = '<p class="empty-state">No addons configured. Add streaming addons to enable content playback.</p>';
     return;
   }
-
   addons.forEach((addon, idx) => {
     const item = document.createElement('div');
     item.className = 'addon-item';
@@ -710,27 +529,23 @@ function displayMovies(movies, containerSelector) {
     console.error('Container not found:', containerSelector);
     return;
   }
-
   container.innerHTML = '';
-
   if (!movies || movies.length === 0) {
     container.innerHTML = '<p class="empty-state">No movies to display.</p>';
     return;
   }
-
   movies.forEach(movie => {
     container.insertAdjacentHTML('beforeend', renderMovieCard(movie));
   });
 }
+window.displayMovies = displayMovies;
 
 function renderMovieCard(movie) {
   const posterUrl = movie.poster_path 
     ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` 
     : 'https://via.placeholder.com/300x450/333/fff?text=No+Image';
-  
   const title = escapeHtml(movie.title || 'Unknown Title');
   const year = movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A';
-  
   return `
     <div class="carousel-card" onclick="showMovieDetails(${movie.id})">
       <img src="${posterUrl}" alt="${title}" loading="lazy" />
@@ -745,6 +560,7 @@ function renderMovieCard(movie) {
     </div>
   `;
 }
+window.renderMovieCard = renderMovieCard;
 
 function displayTVShows(shows, containerSelector) {
   const container = document.querySelector(containerSelector);
@@ -752,26 +568,20 @@ function displayTVShows(shows, containerSelector) {
     console.error('Container not found:', containerSelector);
     return;
   }
-  
   container.innerHTML = '';
-  
   if (!shows || shows.length === 0) {
     container.innerHTML = '<p class="empty-state">No TV shows to display.</p>';
     return;
   }
-  
   shows.forEach(show => {
     const showCard = document.createElement('div');
     showCard.className = 'carousel-card';
-    
     const posterUrl = show.poster_path 
       ? `https://image.tmdb.org/t/p/w500${show.poster_path}` 
       : 'https://via.placeholder.com/500x750/333/fff?text=No+Image';
-    
     const name = escapeHtml(show.name || 'Unknown Show');
     const year = show.first_air_date ? show.first_air_date.split('-')[0] : 'N/A';
     const rating = show.vote_average ? show.vote_average.toFixed(1) : 'N/A';
-    
     showCard.innerHTML = `
       <img src="${posterUrl}" alt="${name}" loading="lazy">
       <div class="card-content">
@@ -783,22 +593,20 @@ function displayTVShows(shows, containerSelector) {
         </div>
       </div>
     `;
-    
     showCard.addEventListener('click', function(e) {
       if (!e.target.closest('button')) {
         console.log('TV show card clicked:', show.name);
         alert(`TV Show Details for "${name}" - Coming soon!`);
       }
     });
-    
     container.appendChild(showCard);
   });
 }
+window.displayTVShows = displayTVShows;
 
 // === LOADING FUNCTIONS ===
 async function loadHomeCatalogs() {
   console.log('Loading all home page catalogs...');
-  
   const catalogFunctions = [
     { fn: loadTrendingMovies, name: 'trending movies' },
     { fn: loadPopularMovies, name: 'popular movies' },
@@ -806,7 +614,6 @@ async function loadHomeCatalogs() {
     { fn: loadTrendingTV, name: 'trending TV' },
     { fn: loadPopularTV, name: 'popular TV' }
   ];
-  
   const results = await Promise.allSettled(
     catalogFunctions.map(async ({ fn, name }) => {
       try {
@@ -818,17 +625,15 @@ async function loadHomeCatalogs() {
       }
     })
   );
-  
   const failures = results.filter(result => result.status === 'rejected').length;
   const successes = results.length - failures;
-  
   console.log(`Home catalogs loading complete: ${successes}/${results.length} successful`);
 }
+window.loadHomeCatalogs = loadHomeCatalogs;
 
 async function loadTrendingMovies() {
   const container = document.querySelector("#trending-movies");
   if (!container) return;
-
   try {
     container.innerHTML = '<div class="loading-placeholder">Loading trending movies...</div>';
     const trending = await getTrendingMovies();
@@ -838,11 +643,11 @@ async function loadTrendingMovies() {
     container.innerHTML = `<p class="error-message">Error loading trending movies: ${error.message}</p>`;
   }
 }
+window.loadTrendingMovies = loadTrendingMovies;
 
 async function loadPopularMovies() {
   const container = document.querySelector("#popular-movies");
   if (!container) return;
-
   try {
     container.innerHTML = '<div class="loading-placeholder">Loading popular movies...</div>';
     const popular = await getPopularMovies();
@@ -852,11 +657,11 @@ async function loadPopularMovies() {
     container.innerHTML = `<p class="error-message">Error loading popular movies. Please check your TMDB API key in Settings.</p>`;
   }
 }
+window.loadPopularMovies = loadPopularMovies;
 
 async function loadLatestMovies() {
   const container = document.querySelector("#latest-movies");
   if (!container) return;
-
   try {
     container.innerHTML = '<div class="loading-placeholder">Loading latest movies...</div>';
     const latest = await getLatestMovies();
@@ -866,11 +671,11 @@ async function loadLatestMovies() {
     container.innerHTML = `<p class="error-message">Error loading latest movies: ${error.message}</p>`;
   }
 }
+window.loadLatestMovies = loadLatestMovies;
 
 async function loadTrendingTV() {
   const container = document.querySelector("#trending-tv");
   if (!container) return;
-
   try {
     container.innerHTML = '<div class="loading-placeholder">Loading trending TV...</div>';
     const trending = await getTrendingTV();
@@ -880,11 +685,11 @@ async function loadTrendingTV() {
     container.innerHTML = `<p class="error-message">Error loading trending TV shows: ${error.message}</p>`;
   }
 }
+window.loadTrendingTV = loadTrendingTV;
 
 async function loadPopularTV() {
   const container = document.querySelector("#popular-tv");
   if (!container) return;
-
   try {
     container.innerHTML = '<div class="loading-placeholder">Loading popular TV...</div>';
     const popular = await getPopularTV();
@@ -894,6 +699,7 @@ async function loadPopularTV() {
     container.innerHTML = `<p class="error-message">Error loading popular TV shows: ${error.message}</p>`;
   }
 }
+window.loadPopularTV = loadPopularTV;
 
 // === TAB MANAGEMENT ===
 class TabManager {
@@ -918,12 +724,10 @@ class TabManager {
       console.log('Tab transition in progress, ignoring click');
       return;
     }
-
     const tabId = this.getTabIdFromButton(button);
     if (!tabId || tabId === this.currentTab) {
       return;
     }
-
     try {
       this.isTransitioning = true;
       await this.showTab(tabId);
@@ -939,7 +743,6 @@ class TabManager {
     if (listItem) {
       return listItem.getAttribute('data-tab');
     }
-    
     const buttons = document.querySelectorAll('.nav-btn');
     const buttonIndex = Array.from(buttons).indexOf(button);
     const tabIds = ['home-tab', 'search-tab', 'library-tab', 'settings-tab'];
@@ -948,17 +751,14 @@ class TabManager {
 
   async showTab(tabId) {
     console.log('Switching to tab:', tabId);
-    
     const targetTab = document.getElementById(tabId);
     if (!targetTab) {
       throw new Error(`Tab not found: ${tabId}`);
     }
-
     this.clearActiveStates();
     targetTab.classList.add('active');
     this.updateNavButton(tabId);
     await this.handleTabSpecificLogic(tabId);
-    
     this.currentTab = tabId;
     console.log('Successfully switched to tab:', tabId);
   }
@@ -1002,14 +802,11 @@ class TabManager {
       const playerSelect = document.getElementById('player-select');
       const debridService = document.getElementById('debrid-service');
       const debridApiKey = document.getElementById('debrid-api-key');
-
-      if (apiKeyInput) apiKeyInput.value = localStorage.getItem('tmdb_api_key') || '';
+      if (apiKeyInput) apiKeyInput.value = getApiKey();
       if (playerSelect) playerSelect.value = getPlayerChoice();
-      
       const debridConfig = getDebridConfig();
       if (debridService) debridService.value = debridConfig.service;
       if (debridApiKey) debridApiKey.value = debridConfig.apiKey;
-
       this.clearStatusMessages();
       renderAddonList();
     } catch (error) {
@@ -1018,33 +815,26 @@ class TabManager {
   }
 
   focusSearchInput() {
-    setTimeout(() => {
-      const searchInput = document.getElementById('search-input');
-      if (searchInput) {
-        searchInput.focus();
-      }
-    }, 100);
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.focus();
+    }
   }
 
   async loadHomeContent() {
-    const apiKey = localStorage.getItem('tmdb_api_key');
-    if (apiKey) {
-      try {
-        await loadHomeCatalogs();
-      } catch (error) {
-        console.error('Error loading home content:', error);
-      }
+    try {
+      await loadHomeCatalogs();
+    } catch (error) {
+      console.error('Error loading home content:', error);
     }
   }
 
   clearStatusMessages() {
-    ['api-key-status', 'player-status', 'debrid-status'].forEach(id => {
-      const element = document.getElementById(id);
-      if (element) element.textContent = '';
+    document.querySelectorAll('.status-message').forEach(msg => {
+      msg.style.display = 'none';
     });
   }
 }
-window.tabManager = new TabManager();
 
 // === SEARCH MANAGEMENT ===
 class SearchManager {
@@ -1056,14 +846,11 @@ class SearchManager {
   setupSearch() {
     const searchInput = document.getElementById("search-input");
     if (!searchInput) return;
-
     searchInput.addEventListener("input", (e) => {
       const query = e.target.value.trim();
-      
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
       }
-      
       this.searchTimeout = setTimeout(() => {
         this.performSearch(query);
       }, 300);
@@ -1073,26 +860,21 @@ class SearchManager {
   async performSearch(query) {
     const resultsContainer = document.getElementById("search-results");
     if (!resultsContainer) return;
-
     if (query.length < 2) {
       resultsContainer.innerHTML = '';
       this.lastQuery = '';
       return;
     }
-
     if (query === this.lastQuery) {
       return;
     }
-
     this.lastQuery = query;
     console.log('Search query:', query);
-    
     try {
       resultsContainer.innerHTML = '<div class="loading-placeholder">Searching...</div>';
       const results = await searchMovies(query);
       displayMovies(results, "#search-results");
       console.log('Search results:', results.length, 'movies found');
-      
       if (results.length === 0) {
         resultsContainer.innerHTML = '<p class="empty-state">No movies found for your search.</p>';
       }
@@ -1102,55 +884,37 @@ class SearchManager {
     }
   }
 }
-window.searchManager = new SearchManager();
 
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing app...');
-
   try {
+    // Initialize managers
+    window.tabManager = new TabManager();
+    window.searchManager = new SearchManager();
     // Setup search functionality
     window.searchManager.setupSearch();
-    
     // Load initial content
     loadHomeCatalogs().catch(error => {
       console.error('Initial catalog loading failed:', error);
     });
-
     // Setup addon management with direct event listener
     const addonAddBtn = document.getElementById('add-addon-btn');
     if (addonAddBtn) {
       console.log('Setting up addon button listener');
-      
-      // Remove any existing listeners
-      addonAddBtn.replaceWith(addonAddBtn.cloneNode(true));
-      const newAddonBtn = document.getElementById('add-addon-btn');
-      
-      newAddonBtn.addEventListener('click', function(e) {
+      addonAddBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
         console.log('Addon button clicked via event listener');
         showAddonModal();
       });
-      
       console.log('Addon button listener setup complete');
     } else {
       console.error('Addon button not found during initialization');
     }
-
-    // Test all button functions
-    console.log('Testing button function availability:');
-    console.log('- saveApiKey:', typeof window.saveApiKey);
-    console.log('- savePlayerChoice:', typeof window.savePlayerChoice);
-    console.log('- saveDebridConfig:', typeof window.saveDebridConfig);
-    console.log('- showAddonModal:', typeof window.showAddonModal);
-
     console.log('App initialization complete');
-
   } catch (error) {
     console.error('Error during app initialization:', error);
     alert(`Initialization error: ${error.message}`);
   }
 });
-
-console.log('Crumble app loaded successfully - all functions should be available');
