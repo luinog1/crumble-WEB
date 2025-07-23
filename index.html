@@ -46,7 +46,7 @@
 
       <!-- Home Tab -->
       <div id="home-tab" class="tab active">
-        <!-- Hero Section (placeholder for future "Up Next" feature) -->
+        <!-- Hero Section -->
         <section class="hero-section">
           <div class="hero-content">
             <h1 class="hero-title">Welcome to Crumble</h1>
@@ -129,16 +129,16 @@
           <h2 class="section-title">Settings</h2>
 
           <!-- TMDB API Key -->
-          <form id="api-key-form" onsubmit="event.preventDefault(); saveApiKey();">
+          <form id="api-key-form">
             <h3>TMDB API Configuration</h3>
             <label for="api-key-input">TMDB API Key:</label>
             <input type="text" id="api-key-input" placeholder="Enter your TMDB API key" autocomplete="off" />
-            <button type="submit">Save API Key</button>
-            <div id="api-key-status"></div>
+            <button type="button" onclick="saveApiKey()">Save API Key</button>
+            <div id="api-key-status" class="status-message" style="display:none;"></div>
           </form>
 
           <!-- Debrid Service -->
-          <form id="debrid-form" onsubmit="event.preventDefault(); saveDebridConfig();">
+          <form id="debrid-form">
             <h3>Debrid Service Configuration</h3>
             <label for="debrid-service">Debrid Service:</label>
             <select id="debrid-service">
@@ -149,12 +149,12 @@
             </select>
             <label for="debrid-api-key">Debrid API Key:</label>
             <input type="text" id="debrid-api-key" placeholder="Enter your debrid API key" autocomplete="off" />
-            <button type="submit">Save Debrid</button>
-            <div id="debrid-status"></div>
+            <button type="button" onclick="saveDebridConfig()">Save Debrid</button>
+            <div id="debrid-status" class="status-message" style="display:none;"></div>
           </form>
 
           <!-- Preferred Player -->
-          <form id="player-form" onsubmit="event.preventDefault(); savePlayerChoice();">
+          <form id="player-form">
             <h3>Player Configuration</h3>
             <label for="player-select">Preferred Player:</label>
             <select id="player-select">
@@ -164,20 +164,19 @@
               <option value="outplayer">Outplayer</option>
               <option value="mrmc">MrMC</option>
             </select>
-            <button type="submit">Save Player</button>
-            <div id="player-status"></div>
+            <button type="button" onclick="savePlayerChoice()">Save Player</button>
+            <div id="player-status" class="status-message" style="display:none;"></div>
           </form>
 
           <!-- Addons -->
           <div class="addon-section">
             <h3>Streaming Addons</h3>
             <div id="addon-list"></div>
-            <button id="add-addon-btn" class="btn-add-addon">Add Addon</button>
+            <button id="add-addon-btn" class="btn-add-addon" type="button">Add Addon</button>
           </div>
         </div>
       </div>
 
-      <!-- Movie Details Modal -->
       <!-- Movie Details Modal -->
       <div id="movie-modal" class="modal" style="display:none;">
         <div class="modal-content">
@@ -185,18 +184,18 @@
           <div id="modal-body"></div>
         </div>
       </div>
-    </div>
+    </main>
 
     <!-- Addon Modal -->
     <div id="addon-modal" class="modal" style="display:none;">
       <div class="modal-content">
         <span class="close" onclick="closeAddonModal()">&times;</span>
         <h3>Add Addon</h3>
-        <form id="addon-form" onsubmit="event.preventDefault(); saveAddon();">
+        <form id="addon-form">
           <label for="addon-url">Addon URL:</label>
           <input id="addon-url" type="url" placeholder="https://torrentio.strem.fun/manifest.json" required />
           <div id="addon-status" class="status-message" style="display:none;"></div>
-          <button type="submit">Add Addon</button>
+          <button type="button" onclick="saveAddon()">Add Addon</button>
         </form>
       </div>
     </div>
@@ -210,13 +209,12 @@
       </div>
     </div>
 
-
   </div>
 
   <!-- HLS.js Player support -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-  <!-- Main JavaScript (standalone version) -->
+  <!-- Main JavaScript -->
   <script src="app.js"></script>
 </body>
 </html>
