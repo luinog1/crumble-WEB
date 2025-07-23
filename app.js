@@ -1220,64 +1220,9 @@ async function loadPopularTV() {
   }
 }
 
-// --- Bottom Navigation Button Handler ---
-function setupBottomNavigation() {
-  console.log('Setting up bottom navigation...');
-
-  // Get all navigation buttons
-  const navButtons = document.querySelectorAll('.tab-bar button[data-tab]');
-  console.log('Found navigation buttons:', navButtons.length);
-
-  if (navButtons.length === 0) {
-    console.error('No navigation buttons found!');
-    return;
-  }
-
-  // Add click event to each button
-  navButtons.forEach((button, index) => {
-    const tabId = button.getAttribute('data-tab');
-    console.log(`Setting up button ${index + 1}: ${tabId}`);
-
-    // Remove any existing listeners
-    button.onclick = null;
-
-    button.addEventListener('click', function(event) {
-      event.preventDefault();
-      event.stopPropagation();
-
-      console.log(`Navigation button clicked: ${tabId}`);
-
-      // Remove active class from all buttons
-      navButtons.forEach(btn => btn.classList.remove('active'));
-
-      // Add active class to clicked button
-      this.classList.add('active');
-
-      // Show the tab
-      showTab(tabId);
-    });
-
-    // Style the button for better UX
-    button.style.cursor = 'pointer';
-    button.style.userSelect = 'none';
-  });
-
-  // Set home tab as active by default
-  const homeButton = document.querySelector('.tab-bar button[data-tab="home-tab"]');
-  if (homeButton) {
-    homeButton.classList.add('active');
-    console.log('Home button set as active');
-  }
-
-  console.log('Bottom navigation setup complete');
-}
-
 // --- Initialize everything when DOM is loaded ---
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing app...');
-
-  // Setup bottom navigation first (most important)
-  setupBottomNavigation();
 
   // Load popular movies
   loadHomeCatalogs();

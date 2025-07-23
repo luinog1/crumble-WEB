@@ -435,37 +435,6 @@ body {
   background: #505064;
 }
 
-/* Tab Bar */
-.tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #23232b;
-  display: flex;
-  justify-content: space-around;
-  border-top: 1px solid #222;
-  z-index: 10;
-  height: 56px;
-  align-items: center;
-}
-
-.tab-bar button {
-  flex: 1 1 0;
-  background: none;
-  border: none;
-  color: #eee;
-  font-size: 1.15em;
-  padding: 0.5em 0;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-  border-radius: 0;
-}
-.tab-bar button:active, .tab-bar button:focus {
-  background: #33334a;
-  color: #fff;
-  outline: none;
-}
 
 /* Stream modal styles */
 .stream-modal {
