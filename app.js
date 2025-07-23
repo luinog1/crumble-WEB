@@ -447,30 +447,57 @@ async function handlePlayButton(movieId, movieTitle) {
     const formatMovieId = (addon, id) => {
       console.log(`\nFormatting ID for ${addon.name}:`, { originalId: id });
       
-      // Convert numeric ID to IMDb format if needed
-      if (addon.idPrefixes?.includes('tt')) {
+      // Special case for Torrentio
+      if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
         // If it's already a valid IMDb ID, return as is
         if (id.startsWith('tt')) {
-          console.log('ID is already in IMDb format:', id);
+          console.log('Using existing IMDb ID:', id);
           return id;
         }
         // If it's a numeric ID, convert to IMDb format
-        if (/^\d+$/.test(id)) {
-          const formattedId = `tt${id.padStart(7, '0')}`;
-          console.log('Converted numeric ID to IMDb format:', { original: id, formatted: formattedId });
+        const numericId = id.toString().replace(/\D/g, ''); // Remove any non-digits
+        if (numericId) {
+          const formattedId = `tt${numericId.padStart(7, '0')}`;
+          console.log('Converted to IMDb ID:', { original: id, formatted: formattedId });
           return formattedId;
         }
-        console.warn('Unable to convert ID to IMDb format:', id);
+        console.warn('Unable to format ID for Torrentio:', id);
+        throw new Error('Invalid ID format for Torrentio - requires IMDb ID');
       }
-      // For Kitsu IDs
-      if (addon.idPrefixes?.includes('kitsu')) {
-        if (id.startsWith('kitsu:')) {
-          const kitsuId = id.substring(6);
-          console.log('Extracted Kitsu ID:', { original: id, formatted: kitsuId });
-          return kitsuId;
+
+      // For other addons that require specific ID prefixes
+      if (addon.idPrefixes && addon.idPrefixes.length > 0) {
+        // Check if the ID already has a valid prefix
+        const currentPrefix = id.split(':')[0] || id.substring(0, 2);
+        if (addon.idPrefixes.includes(currentPrefix)) {
+          console.log('ID already has valid prefix:', id);
+          return id;
         }
+
+        // Try to convert to a supported format
+        if (addon.idPrefixes.includes('tt')) {
+          // Convert to IMDb format
+          const numericId = id.toString().replace(/\D/g, '');
+          if (numericId) {
+            const formattedId = `tt${numericId.padStart(7, '0')}`;
+            console.log('Converted to IMDb format:', { original: id, formatted: formattedId });
+            return formattedId;
+          }
+        } else if (addon.idPrefixes.includes('kitsu') && !id.startsWith('kitsu:')) {
+          const formattedId = `kitsu:${id}`;
+          console.log('Converted to Kitsu format:', { original: id, formatted: formattedId });
+          return formattedId;
+        }
+
+        console.warn('Unable to convert ID to supported format:', {
+          id,
+          supportedPrefixes: addon.idPrefixes
+        });
+        throw new Error(`Unsupported ID format. Expected one of: ${addon.idPrefixes.join(', ')}`);
       }
-      console.log('Using original ID:', id);
+
+      // For addons without specific ID requirements
+      console.log('Using original ID (no format requirements):', id);
       return id;
     };
 
@@ -485,6 +512,16 @@ async function handlePlayButton(movieId, movieTitle) {
           formatted: formattedId,
           idPrefixes: addon.idPrefixes
         });
+
+        // Skip this addon if we couldn't format the ID properly
+        if (!formattedId) {
+          console.warn(`Skipping ${addon.name} due to ID format issues`);
+          return { 
+            success: false, 
+            error: 'Invalid ID format', 
+            addon: addon.name 
+          };
+        }
 
         // Construct the URL for stream request
         const streamUrl = buildAddonUrl(addon, 'stream', 'movie', formattedId);

@@ -310,18 +310,25 @@ function buildAddonUrl(addon, resource, type, id, extra = {}) {
       // Build URL based on addon type and resource
       url = `${baseUrl}${resource}`;
 
+      // Special handling for stream URLs
       if (resource === 'stream') {
         // Special case for Torrentio
         if (addon.url.includes('torrentio') || addon.name.toLowerCase().includes('torrentio')) {
           // Ensure proper ID format for Torrentio (should be IMDb ID)
-          const torrentioId = id.startsWith('tt') ? id : `tt${id}`;
-          url = `${baseUrl}stream/${type}/${torrentioId}.json`;
+          if (!id.startsWith('tt')) {
+            throw new Error('Invalid ID format for Torrentio - requires IMDb ID');
+          }
+          url = `${baseUrl}stream/${type}/${id}.json`;
+          console.log('Built Torrentio URL:', url);
         }
         // Handle other streaming addons
         else if (addon.type === 'torrent' || addon.config?.streaming?.type === 'torrent') {
           url = `${baseUrl}${type}/${id}/stream`;
-        } else if (type && id) {
-          url = `${baseUrl}${resource}/${type}/${id}`;
+        } else if (addon.streaming?.urlPattern) {
+          url = addon.streaming.urlPattern
+            .replace('{type}', type)
+            .replace('{id}', id)
+            .replace('/manifest.json', '');
         }
       } else if (type && id) {
         url += `/${type}/${id}`;
