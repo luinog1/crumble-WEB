@@ -314,9 +314,12 @@ async function handlePlayButton(movieId, movieTitle) {
     
     const streamingAddons = allAddons.filter(addon => {
       console.log('Checking addon:', addon);
-      const hasStream = addon.resources && Array.isArray(addon.resources) && addon.resources.includes('stream');
-      console.log(`Addon ${addon.name}: has stream = ${hasStream}, resources =`, addon.resources);
-      return hasStream;
+      // Check both resources array and type for streaming capability
+      const hasStreamResource = addon.resources && Array.isArray(addon.resources) && addon.resources.includes('stream');
+      const isTorrentType = addon.type === 'torrent';
+      const isStreamingType = hasStreamResource || isTorrentType;
+      console.log(`Addon ${addon.name}: hasStreamResource = ${hasStreamResource}, isTorrentType = ${isTorrentType}`);
+      return isStreamingType;
     });
     
     console.log('Filtered streaming addons:', streamingAddons);
@@ -329,17 +332,31 @@ async function handlePlayButton(movieId, movieTitle) {
 
     showStreamModal('Loading streams...', []);
     
-    const { results } = await callMultipleAddons(streamingAddons, { 
-      type: 'movie', 
-      id: movieId.toString() 
+    const streamPromises = streamingAddons.map(async (addon) => {
+      try {
+        const url = buildAddonUrl(addon, 'stream', 'movie', movieId.toString());
+        console.log(`Calling addon ${addon.name} at URL:`, url);
+        const result = await callAddon(addon, { 
+          type: 'movie', 
+          id: movieId.toString() 
+        });
+        console.log(`Results from ${addon.name}:`, result);
+        return { success: true, data: result, addon: addon.name };
+      } catch (error) {
+        console.error(`Error from ${addon.name}:`, error);
+        return { success: false, error: error.message, addon: addon.name };
+      }
     });
     
-    console.log('Stream results:', results);
+    const results = await Promise.all(streamPromises);
+    console.log('All stream results:', results);
     
     let streams = [];
-    results.forEach(r => {
-      if (r.data && Array.isArray(r.data.streams)) {
-        streams = streams.concat(r.data.streams.map(s => ({ ...s, addon: r.addon })));
+    results.forEach(result => {
+      if (result.success && result.data && Array.isArray(result.data.streams)) {
+        streams = streams.concat(result.data.streams.map(s => ({ ...s, addon: result.addon })));
+      } else {
+        console.warn(`No valid streams from ${result.addon}:`, result);
       }
     });
 
@@ -349,6 +366,14 @@ async function handlePlayButton(movieId, movieTitle) {
       showStreamModal('No streams found for this movie.', []);
       return;
     }
+
+    // Sort streams by quality (if available)
+    streams.sort((a, b) => {
+      const qualityOrder = { '4K': 4, '1080p': 3, '720p': 2, '480p': 1 };
+      const aQuality = qualityOrder[a.quality] || 0;
+      const bQuality = qualityOrder[b.quality] || 0;
+      return bQuality - aQuality;
+    });
 
     showStreamModal(`${streams.length} streams found for "${movieTitle}"`, streams);
   } catch (error) {
