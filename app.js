@@ -283,25 +283,44 @@ window.removeAddon = removeAddon;
 async function handlePlayButton(movieId, movieTitle) {
   console.log('handlePlayButton called:', { movieId, movieTitle });
   try {
-    const addons = getAddons().filter(a => a.resources && a.resources.includes('stream'));
-    if (addons.length === 0) {
+    // Get all addons that have stream capability
+    const allAddons = getAddons();
+    console.log('All addons:', allAddons);
+    
+    const streamingAddons = allAddons.filter(addon => {
+      const hasStream = addon.resources && addon.resources.includes('stream');
+      console.log(`Addon ${addon.name}: has stream = ${hasStream}`, addon);
+      return hasStream;
+    });
+    
+    console.log('Streaming addons:', streamingAddons);
+
+    if (!streamingAddons || streamingAddons.length === 0) {
       alert('No streaming addons configured. Please add at least one streaming addon in Settings.');
       return;
     }
+
     showStreamModal('Loading streams...', []);
-    // Dynamically import AddonLoader.js for compatibility
-    const { callMultipleAddons } = await import('./AddonLoader.js');
-    const { results } = await callMultipleAddons(addons, { type: 'movie', id: movieId });
+    
+    const { results } = await callMultipleAddons(streamingAddons, { 
+      type: 'movie', 
+      id: movieId.toString() 
+    });
+    
+    console.log('Stream results:', results);
+    
     let streams = [];
     results.forEach(r => {
       if (r.data && Array.isArray(r.data.streams)) {
         streams = streams.concat(r.data.streams.map(s => ({ ...s, addon: r.addon })));
       }
     });
+
     if (streams.length === 0) {
       showStreamModal('No streams found for this movie.', []);
       return;
     }
+
     showStreamModal(`${streams.length} streams found for "${movieTitle}"`, streams);
   } catch (error) {
     console.error('Error loading streams:', error);
@@ -333,7 +352,50 @@ window.handleTrailerButton = handleTrailerButton;
 function showMovieDetails(movieId) {
   console.log('showMovieDetails called with ID:', movieId);
   try {
-    alert('Movie details coming soon!');
+    const modal = document.getElementById('movie-modal');
+    const modalBody = document.getElementById('modal-body');
+    if (!modal || !modalBody) {
+      console.error('Movie modal elements not found');
+      return;
+    }
+    
+    modalBody.innerHTML = '<div class="loading-placeholder">Loading movie details...</div>';
+    modal.style.display = 'block';
+
+    getMovieDetails(movieId).then(movie => {
+      if (!movie) {
+        modalBody.innerHTML = '<p class="error-message">Failed to load movie details.</p>';
+        return;
+      }
+
+      const posterUrl = movie.poster_path 
+        ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
+        : 'https://via.placeholder.com/500x750/333/fff?text=No+Image';
+
+      modalBody.innerHTML = `
+        <div class="movie-details">
+          <div class="movie-poster">
+            <img src="${posterUrl}" alt="${escapeHtml(movie.title)}" />
+          </div>
+          <div class="movie-info">
+            <h2>${escapeHtml(movie.title)} ${movie.release_date ? `(${movie.release_date.split('-')[0]})` : ''}</h2>
+            <div class="movie-meta">
+              ${movie.vote_average ? `<span class="rating">⭐ ${movie.vote_average.toFixed(1)}</span>` : ''}
+              ${movie.runtime ? `<span class="runtime">${movie.runtime} min</span>` : ''}
+              ${movie.genres ? `<span class="genres">${movie.genres.map(g => g.name).join(', ')}</span>` : ''}
+            </div>
+            <p class="overview">${escapeHtml(movie.overview || 'No description available.')}</p>
+            <div class="action-buttons">
+              <button class="btn btn-primary" onclick="handlePlayButton(${movie.id}, '${escapeHtml(movie.title).replace(/'/g, "\\'")}')">▶️ Play</button>
+              <button class="btn btn-secondary" onclick="handleTrailerButton(${movie.id}, '${escapeHtml(movie.title).replace(/'/g, "\\'")}')">🎬 Trailer</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).catch(error => {
+      console.error('Error loading movie details:', error);
+      modalBody.innerHTML = `<p class="error-message">Error loading movie details: ${error.message}</p>`;
+    });
   } catch (error) {
     console.error('Error in showMovieDetails:', error);
   }
@@ -460,6 +522,25 @@ function getDebridConfig() {
     return { service: 'none', apiKey: '' };
   }
 }
+
+function getOfflineMode() {
+  return localStorage.getItem('offline_mode') === 'true';
+}
+
+function setOfflineMode(enabled) {
+  localStorage.setItem('offline_mode', enabled ? 'true' : 'false');
+  showStatus(document.getElementById('offline-status'), 
+    `Offline mode ${enabled ? 'enabled' : 'disabled'}. ${enabled ? 'TMDB API calls will be skipped.' : 'TMDB API calls will be made normally.'}`, 
+    enabled ? 'warning' : 'success'
+  );
+  if (!enabled) {
+    // Reload content when going back online
+    loadHomeCatalogs().catch(error => {
+      console.error('Error reloading catalogs:', error);
+    });
+  }
+}
+window.setOfflineMode = setOfflineMode;
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -802,11 +883,16 @@ class TabManager {
       const playerSelect = document.getElementById('player-select');
       const debridService = document.getElementById('debrid-service');
       const debridApiKey = document.getElementById('debrid-api-key');
+      const offlineMode = document.getElementById('offline-mode');
+
       if (apiKeyInput) apiKeyInput.value = getApiKey();
       if (playerSelect) playerSelect.value = getPlayerChoice();
+      if (offlineMode) offlineMode.checked = getOfflineMode();
+      
       const debridConfig = getDebridConfig();
       if (debridService) debridService.value = debridConfig.service;
       if (debridApiKey) debridApiKey.value = debridConfig.apiKey;
+
       this.clearStatusMessages();
       renderAddonList();
     } catch (error) {

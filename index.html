@@ -167,6 +167,19 @@
             <div id="player-status" class="status-message" style="display:none;"></div>
           </div>
 
+          <!-- Offline Mode -->
+          <div class="settings-form">
+            <h3>API Settings</h3>
+            <div class="setting-row">
+              <label for="offline-mode">
+                <input type="checkbox" id="offline-mode" onchange="setOfflineMode(this.checked)">
+                Offline Mode (Disable TMDB API calls)
+              </label>
+            </div>
+            <p class="setting-help">Enable this to skip TMDB API calls. Useful for testing or when API is unavailable.</p>
+            <div id="offline-status" class="status-message" style="display:none;"></div>
+          </div>
+
           <!-- Addons -->
           <div class="addon-section">
             <h3>Streaming Addons</h3>
